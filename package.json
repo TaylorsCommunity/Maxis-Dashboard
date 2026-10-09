@@ -1,11 +1,12 @@
 {
   "name": "maxis-impact-prototype",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "private": true,
   "description": "Maxis participant learning, administration and impact reporting prototype",
   "scripts": {
-    "start": "node server.cjs",
-    "check": "node --check app.js && node --check store.js && node --check data.js && node --check server.cjs",
+    "start": "node local-server.cjs",
+    "build": "node build-static.cjs",
+    "check": "node --check app.js && node --check store.js && node --check data.js && node --check local-server.cjs && node --check build-static.cjs",
     "test": "node tests/prototype.test.cjs && node tests/interface.test.cjs"
   },
   "engines": {

@@ -11,6 +11,16 @@ Version 3 is a complete redesign of the earlier monitoring prototype. It is a se
 
 `npm run check` checks source syntax; `npm test` runs the included dependency-free integration checks. Use the server rather than double-clicking the HTML so the video, captions and exports work consistently. If port 3000 is busy, close the other local server or set another `PORT`.
 
+## Deploy to Vercel
+
+This version includes a static Vercel build. Vercel should serve the generated `dist` folder and must not run the local preview server as a function.
+
+1. Upload or connect the **`Maxis-Prototype` folder itself** as the Vercel project root. `package.json` and `vercel.json` must be visible at that root.
+2. Deploy. The included configuration sets Framework Preset to **Other**, runs `npm run build`, and serves `dist`.
+3. If this Vercel project previously had manual overrides, open **Project Settings → Build and Deployment**. Turn off the existing overrides, or set Build Command to `npm run build` and Output Directory to `dist`, then redeploy without the previous build cache.
+
+Do not set the Build Command to `npm start` or `node local-server.cjs`. Those commands start the local preview server. Vercel should serve the static `dist` output.
+
 ## Four role previews
 
 Select **Preview as** at the top, then choose a user.
@@ -94,13 +104,14 @@ The new storage key does not migrate earlier local prototype edits, and **Reset 
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Workspace shell and role selector |
+| `index.html` / `brand.js` / `maxis-logo.png` | Workspace shell, supplied Maxis logo and embedded report logo |
 | `style.css` | Reference palette, responsive interface and print styles |
 | `data.js` | Fictional participants, courses, users and registers |
 | `store.js` | Shared data, permission checks, learning outcomes, calculations and persistence |
 | `app.js` | Role-based pages, forms, learning player, live attendance and exports |
 | `demo-lesson.mp4` / `.vtt` | Local demonstration lesson and captions |
-| `server.cjs` | Dependency-free local server, including media range support |
+| `local-server.cjs` | Dependency-free local preview server, including media range support |
+| `build-static.cjs` / `vercel.json` | Static Vercel build and deployment settings |
 | `tests/prototype.test.cjs` | Integration checks for learning, access, reporting, attendance and persistence |
 
 The previous hosted concept has not been republished by this code-package update.
