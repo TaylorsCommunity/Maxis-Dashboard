@@ -104,7 +104,7 @@ The new storage key does not migrate earlier local prototype edits, and **Reset 
 
 | File | Purpose |
 | --- | --- |
-| `index.html` / `brand.js` / `maxis-logo.png` | Workspace shell, supplied Maxis logo and embedded report logo |
+| `index.html` / `brand.js` / `endorsement-logo.png` | Workspace shell, supplied Taylor's Community endorsement logo and embedded report logo |
 | `style.css` | Reference palette, responsive interface and print styles |
 | `data.js` | Fictional participants, courses, users and registers |
 | `store.js` | Shared data, permission checks, learning outcomes, calculations and persistence |

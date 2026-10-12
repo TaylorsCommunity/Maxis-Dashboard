@@ -1,6 +1,6 @@
 {
   "name": "maxis-impact-prototype",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "private": true,
   "description": "Maxis participant learning, administration and impact reporting prototype",
   "scripts": {

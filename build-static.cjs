@@ -7,7 +7,7 @@ const output = path.join(root, 'dist');
 const assets = [
   'index.html',
   'style.css',
-  'maxis-logo.png',
+  'endorsement-logo.png',
   'brand.js',
   'data.js',
   'store.js',
