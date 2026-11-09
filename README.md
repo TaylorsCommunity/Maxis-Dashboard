@@ -1,124 +1,94 @@
 # eKelas Usahawan — Learning & Impact Portal
 
-Version 5.0.0 adds operational administration, course authoring, mentor assignment and live attendance workflows while retaining the clean production foundation. It contains no demonstration participants, users, modules, videos, quizzes, attendance, financial records or testimonials.
+Version 6.0.0 replaces administrator-created participant accounts with secure cohort-code registration and expands course authoring into dedicated project workspaces. It contains no demonstration users, participants, courses, videos, tests, attendance, financial records or testimonials.
 
-The supplied Supabase project URL and publishable key are configured in `portal.config.json`. The foundation tables have been verified in the selected project. Run the version 5 upgrade migration before using the new administration and attendance tools.
+## What changed in version 6
 
-## Architecture decision
+- Administrators create a programme and cohort, then generate a time-limited signup code.
+- Participants create their own email/password account with that code and automatically join the correct cohort.
+- People & Access is cohort-first: open a cohort to see its participants, assigned mentors, staff access, code history and course assignment.
+- Every course opens as a separate workspace containing modules, learning content and assessments.
+- Learning content is clearly separated into video, reading and workbook types.
+- The assessment builder supports multiple questions and multiple choice, checkboxes, short answer, long answer and assignment-link responses.
+- Multiple choice and checkboxes are graded automatically. Written and assignment responses enter the assigned mentor's grading queue.
+- Mentors receive an in-portal notification when manual grading is required.
+- Validation errors appear inside the active dialog or form, so they are never hidden behind a modal.
+- The obsolete participant-invitation Edge Function has been removed.
 
-This package uses its selected Supabase project with an explicit database namespace:
+## Database setup
 
-- Every portal table, function, type, index and policy begins with `m_` as this project's database signature.
-- Supabase Authentication is scoped to the selected Supabase project.
-- A valid Auth account receives no portal access unless it also has an active row in `m_memberships`.
-- Row Level Security restricts data by role, participant identity and assigned cohorts.
-- No table, policy or grant outside the `m_` namespace is modified by the portal migrations.
+Use the intended Supabase project and run these files in **SQL Editor**, in order:
 
-The portal is therefore independent from ChronoSphere users and application records.
+1. `supabase/migrations/001_m_foundation.sql`
+2. `supabase/migrations/002_admin_learning_attendance.sql`
+3. `supabase/migrations/003_cohort_signup_assessments.sql`
 
-## 1. Create the database foundation
+If migrations 001 and 002 have already been applied, run only migration 003. It adds cohort codes, participant self-registration, course privacy, advanced assessments, submissions, mentor notifications and grading functions. It does not insert any sample records.
 
-1. Open the intended Supabase project.
-2. Open **SQL Editor**.
-3. Run `supabase/migrations/001_m_foundation.sql` once.
-4. Run `supabase/migrations/002_admin_learning_attendance.sql` once.
-5. Confirm that the new `m_` tables appear in Table Editor.
+Every portal table, policy and function uses the `m_` prefix. This keeps the portal's records separate from the other application already using the same Supabase project.
 
-The migration creates empty production tables for:
+## First administrator and staff accounts
 
-- portal membership and roles;
-- programmes, cohorts and cohort access;
-- participant profiles and mentor assignment;
-- modules, resources, assignments and learning progress;
-- participant-private notes;
-- quiz questions, protected answer keys and server-side grading;
-- live attendance sessions and participant attendance;
-- monthly business check-ins and consented impact stories.
-
-No data is inserted by the migration.
-
-## 2. Create the first administrator
+The first administrator remains a manual, trusted setup step:
 
 1. In Supabase, open **Authentication → Users** and create the administrator account.
-2. Open `supabase/bootstrap-admin.sql`.
-3. Replace `ADMIN DISPLAY NAME` and `ADMIN EMAIL ADDRESS`.
-4. Run the edited statement in SQL Editor.
+2. Edit `supabase/bootstrap-admin.sql` with the administrator's name and email.
+3. Run that statement in SQL Editor.
 
-This bootstrap is intentionally manual. The browser must never receive a Supabase service-role key.
+Participant signup codes create participant memberships only. Additional administrators, mentors and stakeholders should be created as trusted staff accounts in Supabase Auth and given an `m_memberships` row. No service-role key is used in the browser.
 
-## 3. Deploy administrator invitations
+## Participant registration flow
 
-The **Add user** screen calls the included `m-admin-user` Supabase Edge Function. Deploy `supabase/functions/m-admin-user` to the same Supabase project. The function verifies that the caller is an active portal administrator before it invites a user or changes membership access.
+1. Admin creates a programme and cohort in **People & Access**.
+2. Admin opens the cohort and selects **Generate signup code**.
+3. Admin sets an expiry and maximum number of registrations, then securely shares the displayed code.
+4. Participant opens the portal, chooses **Create participant account**, enters the code, profile details, email and password.
+5. Supabase validates the code before signup and enforces it again during user creation.
+6. The new participant appears inside the matching cohort.
+7. Admin assigns a mentor and course from the cohort workspace. New modules added to that course are assigned automatically.
 
-The Supabase-hosted function receives `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in its server environment. Never copy the service-role key into `config.js`, `portal.config.json`, Vercel or browser code.
+Only a hash of each signup code is stored. The full code is shown once when generated. This protects usable cohort codes if read-only reporting data is ever exposed.
 
-## 4. Connection configuration
+## Course and assessment flow
 
-The package is already linked to the supplied project URL using its publishable browser key. Publishable keys are expected to be visible in a web application's source; data protection comes from Authentication and Row Level Security. Never place a secret or service-role key in this repository or browser configuration.
+1. Admin creates a course workspace.
+2. Admin opens the course and adds modules.
+3. Each module can contain video links, reading text and workbook links.
+4. Admin creates an assessment, then adds any number of questions.
+5. Multiple choice and checkbox questions receive protected answer keys and automatic grading.
+6. Short answer, long answer and assignment-link questions create a mentor-grading task after submission.
+7. Admin publishes the module and assessment, then assigns the course to participants.
 
-### Local preview
+Participants can select only courses containing modules assigned to their participant profile. Row Level Security enforces this in Supabase; hiding a course in the interface is not the security boundary.
 
-Run `npm start` and open `http://localhost:3000`. No connection variables are required for this configured package.
+## Connection configuration
 
-Open `http://localhost:3000`.
+The supplied project URL and publishable browser key live in `portal.config.json`. Publishable keys are expected to be visible in a web application's source. Authentication, database functions and Row Level Security protect the data. Never place a secret or service-role key in this repository, Vercel environment variables or browser code.
 
-### Vercel
+If the portal moves to another Supabase project, update `portal.config.json` and `config.js`, run all three migrations in that project, and rebuild.
 
-The committed values in `portal.config.json` are authoritative and work without Vercel environment variables. This prevents stale settings from another Vercel project from silently overriding the intended database. If this portal is moved to another Supabase project, update `portal.config.json` and `config.js`, then rebuild and redeploy.
+In Supabase **Authentication → URL Configuration**, add the production Vercel URL to the allowed redirect URLs so email confirmation and magic-link sign-in can return to the portal.
 
-Older Vercel environment variables may remain configured, but version 5.0.0 does not allow them to override the committed portal configuration. The supported fallback variable names are:
-
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
-
-The build writes the two public values into `dist/config.js`. If the committed configuration is removed, these environment variables become the fallback. If neither source is complete, the deployed portal shows a setup screen.
-
-In Supabase **Authentication → URL Configuration**, add the production Vercel URL to the allowed redirect URLs so magic-link sign-in can return to the portal.
-
-## 5. Authentication and access
-
-The product currently supports password and magic-link sign-in. Public self-registration is not exposed.
+## Role access
 
 | Role | Intended access |
 | --- | --- |
-| Admin | Programme setup, participants, user access, modules, attendance and reports |
-| Mentor | Assigned cohorts, participant monitoring, attendance and reports |
+| Admin | Cohorts, signup codes, mentor assignment, staff access, courses, assessments, attendance, grading and reports |
+| Mentor | Assigned participants, manual grading, attendance and reports |
 | Stakeholder | Read-only programme analytics and reports for assigned cohorts |
-| Participant | Own learning, private notes, quizzes, attendance and business check-ins |
+| Participant | Assigned courses, learning content, private notes, assessments and own business records |
 
-An Auth user who lacks an active `m_memberships` record sees an **Access pending** screen. This prevents existing ChronoSphere users from entering the portal merely because they already belong to the same Supabase project.
+## Run and deploy
 
-## Current product stage
+- `npm start` — local server on `http://localhost:3000`
+- `npm run check` — JavaScript syntax and production-content validation
+- `npm run build` — generates the static `dist` folder used by Vercel
 
-Implemented in this package:
+No package installation is required. Vercel uses the included `vercel.json`, and the browser loads the Supabase JavaScript client from jsDelivr.
 
-- clean production interface with no sample records;
-- Supabase session handling;
-- password and magic-link sign-in;
-- membership and role gate;
-- role-specific navigation;
-- programme overview metrics and participant demographic summaries;
-- administrator user, role, cohort access and mentor-assignment screens;
-- courses with multiple modules and video, text, workbook and test sections;
-- participant module viewer, private notes and server-graded tests;
-- physical, Zoom, Teams and other class registers;
-- mentor attendance marking limited to assigned mentees;
-- isolated production schema;
-- protected quiz answer keys and server-side quiz grading function;
-- Vercel environment configuration and security headers.
+## Current limitations
 
-Still to be developed:
-
-- direct file uploads to Supabase Storage (the current authoring screen accepts external links and text);
-- monthly business submission forms;
-- downloadable stakeholder report generation;
-- an approved user interface for the optional social-media monitoring tables;
-- audit log, notifications, backups and operational monitoring.
-
-## Commands
-
-- `npm start` — local server on port 3000.
-- `npm run check` — JavaScript syntax and production-content validation.
-- `npm run build` — generates the static `dist` folder for Vercel.
-
-No package installation is required for this foundation. The browser loads the Supabase JavaScript client from jsDelivr. A later application phase can move to a bundled framework if server-rendered routes or a larger component system becomes necessary.
+- Workbook and assignment submissions currently use shareable external links; direct Supabase Storage uploads are a later phase.
+- Monthly business submission forms and downloadable stakeholder report generation remain to be built.
+- Social media monitoring remains an optional, consent-based feature. See `SOCIAL_MEDIA_MONITORING_RECOMMENDATION.md` before implementing it.
+- Staff provisioning is intentionally separate from public participant signup.
