@@ -1,13 +1,12 @@
 {
-  "name": "maxis-impact-prototype",
-  "version": "3.0.3",
+  "name": "community-impact-portal",
+  "version": "4.0.1",
   "private": true,
-  "description": "Maxis participant learning, administration and impact reporting prototype",
+  "description": "Role-based learning, monitoring and impact reporting portal",
   "scripts": {
     "start": "node local-server.cjs",
     "build": "node build-static.cjs",
-    "check": "node --check app.js && node --check store.js && node --check data.js && node --check local-server.cjs && node --check build-static.cjs",
-    "test": "node tests/prototype.test.cjs && node tests/interface.test.cjs"
+    "check": "node --check app.js && node --check build-static.cjs && node --check local-server.cjs && node validate-production.cjs"
   },
   "engines": {
     "node": ">=18"

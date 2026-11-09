@@ -1,3 +1,49 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maxis | eKelas Usahawan Learning & Impact</title><meta name="description" content="Participant learning, programme administration and stakeholder reporting prototype."><link rel="icon" type="image/png" href="endorsement-logo.png"><link rel="stylesheet" href="style.css"></head><body>
-<a class="skip-link" href="#main">Skip to content</a><aside class="sidebar"><a class="brand" href="#" aria-label="Taylor's Community eKelas Usahawan home"><img src="endorsement-logo.png" alt="Taylor's Community — an initiative by Taylor's Education Group"></a><div class="workspace-label">eKelas Usahawan<small>Learn. Grow. Go further.</small></div><div class="nav-caption" id="nav-caption">YOUR WORKSPACE</div><nav id="nav" aria-label="Main navigation"></nav><div class="side-bottom"><div class="pathway"><span>YOUR NEXT CHAPTER</span><strong>Skills today.<br>Possibilities tomorrow.</strong><i aria-hidden="true">↗</i></div><div class="delivery">Delivered with <b>Taylor’s Community</b></div></div></aside>
-<div class="shell"><header class="topbar"><div class="breadcrumb">eKelas Usahawan <span>/</span> <b id="crumb">Overview</b></div><div class="account-controls"><label class="role-label">Preview as <select id="role" aria-label="Preview role"><option value="stakeholder">Maxis stakeholder</option><option value="participant">Participant</option><option value="admin">Programme admin</option><option value="mentor">Mentor</option></select></label><select id="identity" aria-label="Preview user"></select><span class="account-avatar" id="account-avatar">MX</span></div></header><div class="demo-strip"><span><i></i> Interactive prototype · fictional data · saved in this browser</span><div><button class="text-btn" data-action="about">How access works</button><button class="text-btn" data-action="reset">Reset demo</button></div></div><main id="main" tabindex="-1"><div id="content"></div><footer><b>eKelas Usahawan</b><span>Learning & impact portal · Proposal prototype</span></footer></main></div><dialog id="dialog" aria-labelledby="dialog-title"><div id="dialog-content"></div></dialog><div id="toast" role="status" aria-live="polite"></div><script src="brand.js"></script><script src="data.js"></script><script src="store.js"></script><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eKelas Usahawan | Learning & Impact Portal</title>
+  <meta name="description" content="Secure learning, programme monitoring and stakeholder reporting portal.">
+  <link rel="icon" type="image/png" href="endorsement-logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="product.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#" data-page="overview" aria-label="Taylor's Community portal home">
+      <img src="endorsement-logo.png" alt="Taylor's Community — an initiative by Taylor's Education Group">
+    </a>
+    <div class="workspace-label">eKelas Usahawan<small>Learning & impact portal</small></div>
+    <div class="nav-caption">WORKSPACE</div>
+    <nav id="nav" aria-label="Main navigation"></nav>
+    <div class="side-bottom">
+      <div class="pathway"><span>PROGRAMME PORTAL</span><strong>Learn. Monitor.<br>Measure impact.</strong><i aria-hidden="true">↗</i></div>
+      <div class="delivery">Managed by <b>Taylor’s Community</b></div>
+    </div>
+  </aside>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="breadcrumb">eKelas Usahawan <span>/</span> <b id="crumb">Portal</b></div>
+      <div class="account-controls">
+        <span class="connection-chip" id="connection-status">Connecting</span>
+        <span class="account-name" id="account-name"></span>
+        <span class="account-avatar" id="account-avatar" aria-hidden="true">TC</span>
+        <button class="secondary btn-sm" id="sign-out" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+    <div class="product-strip"><span><i></i> Secure portal · Supabase authentication and row-level access</span></div>
+    <main id="main" tabindex="-1">
+      <div id="content" aria-live="polite"><div class="loading-card">Loading portal…</div></div>
+      <footer><b>eKelas Usahawan</b><span>Learning & impact portal</span></footer>
+    </main>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
