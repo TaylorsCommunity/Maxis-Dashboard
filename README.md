@@ -1,16 +1,16 @@
 # eKelas Usahawan — Learning & Impact Portal
 
-Version 4 is the clean production foundation. It contains no demonstration participants, users, modules, videos, quizzes, attendance, financial records or testimonials. The role simulator and browser-local database have been removed.
+Version 4.0.2 is the clean production foundation. It contains no demonstration participants, users, modules, videos, quizzes, attendance, financial records or testimonials. The role simulator and browser-local database have been removed.
 
-The supplied Supabase project URL and publishable key are configured in `portal.config.json`. The endpoint has been verified, but the `portal_*` tables do not exist yet. Run the included migration before using the portal.
+The supplied Supabase project URL and publishable key are configured in `portal.config.json`. The endpoint has been verified, but the `m_*` tables do not exist yet. Run the included migration before using the portal.
 
 ## Architecture decision
 
 This package can use the existing ChronoSphere Supabase project without mixing application data:
 
-- Every portal table, function, type and policy begins with `portal_`.
+- Every portal table, function, type, index and policy begins with `m_` as this project's database signature.
 - Supabase Authentication remains project-wide, so both applications' identities appear in the same `auth.users` directory.
-- A valid Auth account receives no portal access unless it also has an active row in `portal_memberships`.
+- A valid Auth account receives no portal access unless it also has an active row in `m_memberships`.
 - Row Level Security restricts data by role, participant identity and assigned cohorts.
 - No ChronoSphere table, policy or grant is modified by the portal migration.
 
@@ -20,8 +20,8 @@ If completely separate Auth users, email templates, backups and database adminis
 
 1. Open the intended Supabase project.
 2. Open **SQL Editor**.
-3. Run `supabase/migrations/001_portal_foundation.sql` once.
-4. Confirm that the new `portal_` tables appear in Table Editor.
+3. Run `supabase/migrations/001_m_foundation.sql` once.
+4. Confirm that the new `m_` tables appear in Table Editor.
 
 The migration creates empty production tables for:
 
@@ -77,7 +77,7 @@ The product currently supports password and magic-link sign-in. Public self-regi
 | Stakeholder | Read-only programme analytics and reports for assigned cohorts |
 | Participant | Own learning, private notes, quizzes, attendance and business check-ins |
 
-An Auth user who lacks an active `portal_memberships` record sees an **Access pending** screen. This prevents existing ChronoSphere users from entering the portal merely because they already belong to the same Supabase project.
+An Auth user who lacks an active `m_memberships` record sees an **Access pending** screen. This prevents existing ChronoSphere users from entering the portal merely because they already belong to the same Supabase project.
 
 ## Current product stage
 

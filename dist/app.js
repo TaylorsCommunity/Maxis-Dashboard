@@ -86,7 +86,7 @@
       <h1>Connect the portal database</h1>
       <p>The interface contains no demonstration users or programme records. Complete these two configuration steps to connect the live database.</p>
       <ol class="setup-list">
-        <li>Run <b>supabase/migrations/001_portal_foundation.sql</b> in the selected Supabase project.</li>
+        <li>Run <b>supabase/migrations/001_m_foundation.sql</b> in the selected Supabase project.</li>
         <li>Add the project URL and publishable key to the local or Vercel environment.</li>
       </ol>
       <div class="code-block">SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co<br>SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY</div>
@@ -165,10 +165,10 @@
 
   async function overviewPage() {
     const [participants, modules, finalizedSessions, monthlyRecords] = await Promise.all([
-      countRows('portal_participants'),
-      countRows('portal_modules', query => query.eq('published', true)),
-      countRows('portal_attendance_sessions', query => query.eq('finalized', true)),
-      countRows('portal_business_checkins')
+      countRows('m_participants'),
+      countRows('m_modules', query => query.eq('published', true)),
+      countRows('m_attendance_sessions', query => query.eq('finalized', true)),
+      countRows('m_business_checkins')
     ]);
     const role = state.membership.role;
     return `${pageHead(role === 'participant' ? 'My programme overview' : 'Programme overview', 'Live information is loaded from Supabase and limited by your assigned role and cohorts.', `${role.toUpperCase()} WORKSPACE`)}
@@ -180,7 +180,7 @@
   }
 
   async function peoplePage() {
-    const { data, error } = await state.client.from('portal_participants').select('id,full_name,business_name,state,active').order('full_name').limit(100);
+    const { data, error } = await state.client.from('m_participants').select('id,full_name,business_name,state,active').order('full_name').limit(100);
     if (error) throw error;
     const rows = data || [];
     return `${pageHead(state.membership.role === 'mentor' ? 'Participants' : 'People & access', 'Participant records visible within your authorised cohorts.', 'SECURE RECORDS')}
@@ -189,7 +189,7 @@
 
   async function learningPage() {
     const role = state.membership.role;
-    let query = state.client.from('portal_modules').select('id,title,description,published,created_at').order('created_at', { ascending: false });
+    let query = state.client.from('m_modules').select('id,title,description,published,created_at').order('created_at', { ascending: false });
     if (role !== 'admin') query = query.eq('published', true);
     const { data, error } = await query.limit(100);
     if (error) throw error;
@@ -199,7 +199,7 @@
   }
 
   async function attendancePage() {
-    const { data, error } = await state.client.from('portal_attendance_sessions').select('id,title,session_date,meeting_number,finalized').order('session_date', { ascending: false }).limit(100);
+    const { data, error } = await state.client.from('m_attendance_sessions').select('id,title,session_date,meeting_number,finalized').order('session_date', { ascending: false }).limit(100);
     if (error) throw error;
     const sessions = data || [];
     return `${pageHead('Live attendance', 'Create class registers and record attendance against each participant profile.', 'ATTENDANCE')}
@@ -207,7 +207,7 @@
   }
 
   async function businessPage() {
-    const { data, error } = await state.client.from('portal_business_checkins').select('id,reporting_month,sales,operating_costs,mentor_reviewed').order('reporting_month', { ascending: false }).limit(24);
+    const { data, error } = await state.client.from('m_business_checkins').select('id,reporting_month,sales,operating_costs,mentor_reviewed').order('reporting_month', { ascending: false }).limit(24);
     if (error) throw error;
     const records = data || [];
     return `${pageHead('My business', 'Submit and review your monthly business performance.', 'BUSINESS MONITORING')}
@@ -240,13 +240,13 @@
       $('content').innerHTML = html;
     } catch (error) {
       console.error(error);
-      $('content').innerHTML = `${pageHead('Database setup incomplete', 'The portal connected to Supabase but could not load the required portal tables.', 'ACTION REQUIRED')}<section class="notice amber">${escapeHtml(error.message || 'Unknown database error')}</section>${emptyState('Run the portal migration', 'Apply supabase/migrations/001_portal_foundation.sql, then refresh this page.', 'overview')}`;
+      $('content').innerHTML = `${pageHead('Database setup incomplete', 'The portal connected to Supabase but could not load the required portal tables.', 'ACTION REQUIRED')}<section class="notice amber">${escapeHtml(error.message || 'Unknown database error')}</section>${emptyState('Run the portal migration', 'Apply supabase/migrations/001_m_foundation.sql, then refresh this page.', 'overview')}`;
       setConnection('Database action required', 'error');
     }
   }
 
   async function loadMembership() {
-    const { data, error } = await state.client.from('portal_memberships').select('user_id,display_name,role,active').eq('user_id', state.session.user.id).eq('active', true).maybeSingle();
+    const { data, error } = await state.client.from('m_memberships').select('user_id,display_name,role,active').eq('user_id', state.session.user.id).eq('active', true).maybeSingle();
     if (error) throw error;
     state.membership = data;
     if (!data) renderNoAccess();

@@ -32,8 +32,8 @@ for (const file of sourceFiles) {
   }
 }
 
-const migration = fs.readFileSync(path.join(root, 'supabase/migrations/001_portal_foundation.sql'), 'utf8');
-for (const table of ['portal_memberships', 'portal_programmes', 'portal_cohorts', 'portal_participants', 'portal_modules', 'portal_module_resources', 'portal_quiz_questions']) {
+const migration = fs.readFileSync(path.join(root, 'supabase/migrations/001_m_foundation.sql'), 'utf8');
+for (const table of ['m_memberships', 'm_programmes', 'm_cohorts', 'm_participants', 'm_modules', 'm_module_resources', 'm_quiz_questions']) {
   if (new RegExp(`insert\\s+into\\s+(public\\.)?${table}\\b`, 'i').test(migration)) throw new Error(`Foundation migration seeds ${table}.`);
 }
 if (!migration.includes('enable row level security')) throw new Error('RLS is missing from the portal migration.');
