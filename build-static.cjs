@@ -21,8 +21,11 @@ for (const asset of assets) {
 }
 
 const publicConfig = JSON.parse(fs.readFileSync(path.join(root, 'portal.config.json'), 'utf8'));
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || publicConfig.supabaseUrl || '';
-const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || publicConfig.supabasePublishableKey || '';
+// The committed public configuration is authoritative for this portal. Environment
+// variables are only fallbacks so stale values from another Vercel project cannot
+// silently redirect the build to the wrong Supabase database.
+const supabaseUrl = publicConfig.supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const publishableKey = publicConfig.supabasePublishableKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const runtimeConfig = `window.PORTAL_CONFIG=Object.freeze(${JSON.stringify({
   supabaseUrl,
   supabasePublishableKey: publishableKey

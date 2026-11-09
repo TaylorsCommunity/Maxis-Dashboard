@@ -1,6 +1,6 @@
 # eKelas Usahawan — Learning & Impact Portal
 
-Version 4.0.2 is the clean production foundation. It contains no demonstration participants, users, modules, videos, quizzes, attendance, financial records or testimonials. The role simulator and browser-local database have been removed.
+Version 4.0.3 is the clean production foundation. It contains no demonstration participants, users, modules, videos, quizzes, attendance, financial records or testimonials. The role simulator and browser-local database have been removed.
 
 The supplied Supabase project URL and publishable key are configured in `portal.config.json`. The endpoint has been verified, but the `m_*` tables do not exist yet. Run the included migration before using the portal.
 
@@ -57,12 +57,14 @@ Open `http://localhost:3000`.
 
 ### Vercel
 
-The committed public configuration works without Vercel environment variables. To override it for another Supabase project, add these in **Project Settings → Environment Variables**:
+The committed values in `portal.config.json` are authoritative and work without Vercel environment variables. This prevents stale settings from another Vercel project from silently overriding the intended database. If this portal is moved to another Supabase project, update `portal.config.json` and `config.js`, then rebuild and redeploy.
+
+Older Vercel environment variables may remain configured, but version 4.0.3 does not allow them to override the committed portal configuration. The supported fallback variable names are:
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 
-Then redeploy. The build writes the two public values into `dist/config.js`. If either value is missing, the deployed portal shows a setup screen.
+The build writes the two public values into `dist/config.js`. If the committed configuration is removed, these environment variables become the fallback. If neither source is complete, the deployed portal shows a setup screen.
 
 In Supabase **Authentication → URL Configuration**, add the production Vercel URL to the allowed redirect URLs so magic-link sign-in can return to the portal.
 
