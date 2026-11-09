@@ -1,6 +1,6 @@
 {
   "name": "community-impact-portal",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "private": true,
   "description": "Role-based learning, monitoring and impact reporting portal",
   "scripts": {

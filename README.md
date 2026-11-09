@@ -1,94 +1,136 @@
 # eKelas Usahawan — Learning & Impact Portal
 
-Version 6.0.0 replaces administrator-created participant accounts with secure cohort-code registration and expands course authoring into dedicated project workspaces. It contains no demonstration users, participants, courses, videos, tests, attendance, financial records or testimonials.
+Version 7.0.0 turns the dashboard into an operational learning and monitoring product. It contains no demonstration users, participants, courses, videos, assessments, attendance, business records or testimonials.
 
-## What changed in version 6
+## Version 7 capabilities
 
-- Administrators create a programme and cohort, then generate a time-limited signup code.
-- Participants create their own email/password account with that code and automatically join the correct cohort.
-- People & Access is cohort-first: open a cohort to see its participants, assigned mentors, staff access, code history and course assignment.
-- Every course opens as a separate workspace containing modules, learning content and assessments.
-- Learning content is clearly separated into video, reading and workbook types.
-- The assessment builder supports multiple questions and multiple choice, checkboxes, short answer, long answer and assignment-link responses.
-- Multiple choice and checkboxes are graded automatically. Written and assignment responses enter the assigned mentor's grading queue.
-- Mentors receive an in-portal notification when manual grading is required.
-- Validation errors appear inside the active dialog or form, so they are never hidden behind a modal.
-- The obsolete participant-invitation Edge Function has been removed.
+- Admin-issued invitations for mentors, stakeholders and additional administrators.
+- Participant self-registration using secure cohort codes.
+- Mandatory participant business onboarding after the first sign-in.
+- Business profiles with descriptions, sector, baseline month, sales, costs, profit, employees and business goals.
+- Private participant profile-photo uploads through Supabase Storage.
+- Participant-published monthly sales, costs, profit, customer and employee monitoring.
+- Course access assigned by cohort from inside each course workspace.
+- Existing and future participants in an authorised cohort receive the course automatically.
+- Ordered course modules, with later modules locked until the previous module is complete.
+- Assessments locked until required videos, readings and workbooks are completed.
+- Single-attempt or multiple-attempt assessment settings.
+- Automatic tests and mentor-graded assignments with notifications.
+- Filterable dashboard analytics, demographic breakdowns, attendance, learning completion and profit growth.
+- Cohort-first People & Access, participant profiles, staff access and invitation history.
+- URL-based view persistence, so refreshing or returning to the tab retains the current workspace.
+- Production email-confirmation redirects using the current deployed website address.
 
 ## Database setup
 
-Use the intended Supabase project and run these files in **SQL Editor**, in order:
+Run these files in the intended Supabase project's **SQL Editor**, in order:
 
 1. `supabase/migrations/001_m_foundation.sql`
 2. `supabase/migrations/002_admin_learning_attendance.sql`
 3. `supabase/migrations/003_cohort_signup_assessments.sql`
+4. `supabase/migrations/004_product_workflows.sql`
 
-If migrations 001 and 002 have already been applied, run only migration 003. It adds cohort codes, participant self-registration, course privacy, advanced assessments, submissions, mentor notifications and grading functions. It does not insert any sample records.
+If migrations 001–003 have already succeeded, run only migration 004. All migrations are idempotent and insert no demonstration programme records.
 
-Every portal table, policy and function uses the `m_` prefix. This keeps the portal's records separate from the other application already using the same Supabase project.
+Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
-## First administrator and staff accounts
+## First administrator
 
-The first administrator remains a manual, trusted setup step:
+The first administrator remains a trusted manual setup step:
 
 1. In Supabase, open **Authentication → Users** and create the administrator account.
 2. Edit `supabase/bootstrap-admin.sql` with the administrator's name and email.
-3. Run that statement in SQL Editor.
+3. Run the statement in SQL Editor.
 
-Participant signup codes create participant memberships only. Additional administrators, mentors and stakeholders should be created as trusted staff accounts in Supabase Auth and given an `m_memberships` row. No service-role key is used in the browser.
+After this, the administrator can issue mentor, stakeholder and administrator invitations inside **People & Access**. No service-role key or Edge Function is required in the browser.
 
-## Participant registration flow
+## Mentor and staff invitation flow
 
-1. Admin creates a programme and cohort in **People & Access**.
-2. Admin opens the cohort and selects **Generate signup code**.
-3. Admin sets an expiry and maximum number of registrations, then securely shares the displayed code.
-4. Participant opens the portal, chooses **Create participant account**, enters the code, profile details, email and password.
-5. Supabase validates the code before signup and enforces it again during user creation.
-6. The new participant appears inside the matching cohort.
-7. Admin assigns a mentor and course from the cohort workspace. New modules added to that course are assigned automatically.
+1. Admin opens **People & Access → Staff access**.
+2. Admin selects **Invite mentor**, enters the name, email, role and expiry.
+3. The portal generates a secure, one-time invitation link.
+4. Admin shares that link with the intended person.
+5. The invitee sets their own password using the exact invited email address.
+6. Supabase sends its normal confirmation email.
+7. After confirmation, the staff member signs in with the role selected by the administrator.
 
-Only a hash of each signup code is stored. The full code is shown once when generated. This protects usable cohort codes if read-only reporting data is ever exposed.
+Only administrators can create staff invitations. The invitation is email-bound, expires, and cannot be reused after acceptance.
 
-## Course and assessment flow
+## Participant registration and onboarding
+
+1. Admin creates a programme and cohort.
+2. Admin opens the cohort and generates a participant signup code.
+3. Participant creates an account with that code.
+4. Supabase assigns the participant to the matching cohort.
+5. After email confirmation and first sign-in, the participant must complete their business profile and baseline.
+6. Learning and monthly monitoring unlock after onboarding is complete.
+7. Admin assigns a mentor from the cohort workspace.
+
+## Course access and learning flow
 
 1. Admin creates a course workspace.
-2. Admin opens the course and adds modules.
-3. Each module can contain video links, reading text and workbook links.
-4. Admin creates an assessment, then adds any number of questions.
-5. Multiple choice and checkbox questions receive protected answer keys and automatic grading.
-6. Short answer, long answer and assignment-link questions create a mentor-grading task after submission.
-7. Admin publishes the module and assessment, then assigns the course to participants.
+2. Admin adds ordered modules.
+3. Each module contains required or optional videos, readings and workbooks.
+4. Admin creates ordered assessments and chooses one attempt or multiple attempts.
+5. Admin selects **Manage cohort access** from inside the course.
+6. All participants in the authorised cohort receive the course automatically.
+7. Participants complete the course in sequence:
+   - later modules remain locked until the previous module is complete;
+   - assessments remain locked until all required content is complete;
+   - later assessments remain locked until earlier assessments are passed.
 
-Participants can select only courses containing modules assigned to their participant profile. Row Level Security enforces this in Supabase; hiding a course in the interface is not the security boundary.
+Multiple-choice and checkbox questions are graded automatically. Short answers, long answers and assignment links enter the assigned mentor's grading queue.
+
+## Business monitoring
+
+Participants can publish one record per reporting month containing:
+
+- sales or revenue;
+- operating costs;
+- net profit, including a negative result;
+- customer count;
+- employee count;
+- business notes and changes;
+- an optional, consented impact story.
+
+Publishing the same month again updates that month's record.
+
+## Email confirmation redirect
+
+The website sends the current deployed website address to Supabase for signup and magic-link redirects. Supabase must also allow that address:
+
+1. Open **Supabase → Authentication → URL Configuration**.
+2. Set the production Vercel URL as the **Site URL**.
+3. Add the same address to **Redirect URLs**.
+4. Do not use a localhost Site URL for production testing.
+
+The exact address expected by the running portal is also displayed under **Account & system**.
 
 ## Connection configuration
 
-The supplied project URL and publishable browser key live in `portal.config.json`. Publishable keys are expected to be visible in a web application's source. Authentication, database functions and Row Level Security protect the data. Never place a secret or service-role key in this repository, Vercel environment variables or browser code.
+The selected Supabase project URL and publishable browser key are stored in `portal.config.json`. Publishable keys are expected to be visible in browser applications; security comes from Authentication, database functions and Row Level Security.
 
-If the portal moves to another Supabase project, update `portal.config.json` and `config.js`, run all three migrations in that project, and rebuild.
-
-In Supabase **Authentication → URL Configuration**, add the production Vercel URL to the allowed redirect URLs so email confirmation and magic-link sign-in can return to the portal.
+Never place a service-role key in this repository, Vercel or browser code.
 
 ## Role access
 
 | Role | Intended access |
 | --- | --- |
-| Admin | Cohorts, signup codes, mentor assignment, staff access, courses, assessments, attendance, grading and reports |
-| Mentor | Assigned participants, manual grading, attendance and reports |
-| Stakeholder | Read-only programme analytics and reports for assigned cohorts |
-| Participant | Assigned courses, learning content, private notes, assessments and own business records |
+| Admin | Dashboard analytics, programmes, cohorts, staff invitations, participant profiles, mentor assignment, course authoring, cohort course access, attendance, grading and reports |
+| Mentor | Assigned participant profiles, manual grading, attendance and reports |
+| Stakeholder | Read-only programme analytics and authorised reports |
+| Participant | Own profile, assigned learning path, private notes, assessments and monthly business monitoring |
 
 ## Run and deploy
 
-- `npm start` — local server on `http://localhost:3000`
-- `npm run check` — JavaScript syntax and production-content validation
-- `npm run build` — generates the static `dist` folder used by Vercel
+- `npm start` — local server at `http://localhost:3000`
+- `npm run check` — syntax and production validation
+- `npm run build` — creates the static `dist` folder for Vercel
 
-No package installation is required. Vercel uses the included `vercel.json`, and the browser loads the Supabase JavaScript client from jsDelivr.
+Redeploy to Vercel after running migration 004. No package installation is required.
 
 ## Current limitations
 
-- Workbook and assignment submissions currently use shareable external links; direct Supabase Storage uploads are a later phase.
-- Monthly business submission forms and downloadable stakeholder report generation remain to be built.
-- Social media monitoring remains an optional, consent-based feature. See `SOCIAL_MEDIA_MONITORING_RECOMMENDATION.md` before implementing it.
-- Staff provisioning is intentionally separate from public participant signup.
+- Assignment submissions currently accept a shareable file or document URL rather than uploading full assignment files.
+- Downloadable stakeholder report generation remains a later phase.
+- Social-media monitoring remains optional and consent-based. Review `SOCIAL_MEDIA_MONITORING_RECOMMENDATION.md` before implementation.

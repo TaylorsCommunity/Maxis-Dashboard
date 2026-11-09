@@ -63,13 +63,13 @@ begin
   end if;
 
   loop
-    raw_code := 'EKU-' || upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 12));
+    raw_code := 'EKU-' || upper(substr(encode(extensions.gen_random_bytes(8), 'hex'), 1, 12));
     begin
       insert into public.m_signup_codes (
         cohort_id, code_digest, code_hint, expires_at, max_uses, created_by
       ) values (
         target_cohort,
-        digest(raw_code, 'sha256'),
+        extensions.digest(raw_code, 'sha256'),
         right(raw_code, 4),
         valid_until,
         allowed_uses,
@@ -96,7 +96,7 @@ as $$
   from public.m_signup_codes signup
   join public.m_cohorts cohort on cohort.id = signup.cohort_id and cohort.active
   join public.m_programmes programme on programme.id = cohort.programme_id and programme.active
-  where signup.code_digest = digest(upper(btrim(raw_code)), 'sha256')
+  where signup.code_digest = extensions.digest(upper(btrim(raw_code)), 'sha256')
     and signup.active
     and (signup.expires_at is null or signup.expires_at > now())
     and (signup.max_uses is null or signup.used_count < signup.max_uses)
@@ -121,7 +121,7 @@ begin
 
   select * into selected_code
   from public.m_signup_codes signup
-  where signup.code_digest = digest(raw_code, 'sha256')
+  where signup.code_digest = extensions.digest(raw_code, 'sha256')
     and signup.active
     and (signup.expires_at is null or signup.expires_at > now())
     and (signup.max_uses is null or signup.used_count < signup.max_uses)
