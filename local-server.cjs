@@ -2,7 +2,13 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const port = Number(process.env.PORT) || 3000;
+const args = process.argv.slice(2);
+const argument = name => {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : '';
+};
+const port = Number(argument('--port') || process.env.PORT) || 3000;
+const host = argument('--host') || '127.0.0.1';
 const allowed = new Set(['index.html', 'style.css', 'product.css', 'endorsement-logo.png', 'app.js', 'config.js']);
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -64,6 +70,6 @@ server.on('error', error => {
   process.exitCode = 1;
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Impact portal: http://localhost:${port}\nPress Ctrl+C to stop.`);
+server.listen(port, host, () => {
+  console.log(`Impact portal: http://${host}:${port}\nPress Ctrl+C to stop.`);
 });

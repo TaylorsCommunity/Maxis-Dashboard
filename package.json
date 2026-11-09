@@ -1,9 +1,10 @@
 {
   "name": "community-impact-portal",
-  "version": "4.0.3",
+  "version": "5.0.0",
   "private": true,
   "description": "Role-based learning, monitoring and impact reporting portal",
   "scripts": {
+    "dev": "node local-server.cjs",
     "start": "node local-server.cjs",
     "build": "node build-static.cjs",
     "check": "node --check app.js && node --check build-static.cjs && node --check local-server.cjs && node validate-production.cjs"

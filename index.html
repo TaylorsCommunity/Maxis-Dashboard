@@ -27,14 +27,17 @@
   <div class="shell">
     <header class="topbar">
       <div class="breadcrumb">eKelas Usahawan <span>/</span> <b id="crumb">Portal</b></div>
-      <div class="account-controls">
-        <span class="connection-chip" id="connection-status">Connecting</span>
-        <span class="account-name" id="account-name"></span>
-        <span class="account-avatar" id="account-avatar" aria-hidden="true">TC</span>
-        <button class="secondary btn-sm" id="sign-out" type="button" hidden>Sign out</button>
+      <div class="account-controls" id="account-control" hidden>
+        <button class="account-trigger" id="account-trigger" type="button" aria-haspopup="menu" aria-label="Open account menu">
+          <span class="account-name" id="account-name"></span>
+          <span class="account-avatar" id="account-avatar" aria-hidden="true">TC</span>
+        </button>
+        <div class="account-menu" id="account-menu" role="menu" hidden>
+          <button type="button" data-page="account" role="menuitem">Account & system</button>
+          <button type="button" id="sign-out" role="menuitem">Sign out</button>
+        </div>
       </div>
     </header>
-    <div class="product-strip"><span><i></i> Secure portal · Supabase authentication and row-level access</span></div>
     <main id="main" tabindex="-1">
       <div id="content" aria-live="polite"><div class="loading-card">Loading portal…</div></div>
       <footer><b>eKelas Usahawan</b><span>Learning & impact portal</span></footer>
@@ -42,8 +45,8 @@
   </div>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script src="config.js?v=4.0.3"></script>
+  <script src="config.js?v=5.0.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=4.0.3"></script>
+  <script src="app.js?v=5.0.0"></script>
 </body>
 </html>
