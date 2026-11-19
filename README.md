@@ -19,7 +19,7 @@ Version 7.0.0 turns the dashboard into an operational learning and monitoring pr
 - Filterable dashboard analytics, demographic breakdowns, attendance, learning completion and profit growth.
 - Cohort-first People & Access, participant profiles, staff access and invitation history.
 - URL-based view persistence, so refreshing or returning to the tab retains the current workspace.
-- Production email-confirmation redirects using the current deployed website address.
+- No email confirmation step: the admin-issued cohort code or staff invitation is the access check, and accounts work immediately.
 
 ## Database setup
 
@@ -29,8 +29,9 @@ Run these files in the intended Supabase project's **SQL Editor**, in order:
 2. `supabase/migrations/002_admin_learning_attendance.sql`
 3. `supabase/migrations/003_cohort_signup_assessments.sql`
 4. `supabase/migrations/004_product_workflows.sql`
+5. `supabase/migrations/005_dashboard_privacy.sql`
 
-If migrations 001–003 have already succeeded, run only migration 004. All migrations are idempotent and insert no demonstration programme records.
+If migrations 001–004 have already succeeded, run only migration 005. All migrations are idempotent and insert no demonstration programme records.
 
 Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
@@ -49,12 +50,11 @@ After this, the administrator can issue mentor, stakeholder and administrator in
 1. Admin opens **People & Access → Staff access**.
 2. Admin selects **Invite mentor**, enters the name, email, role and expiry.
 3. The portal generates a secure, one-time invitation link.
-4. Admin shares that link with the intended person.
+4. Admin shares that link privately with the intended person.
 5. The invitee sets their own password using the exact invited email address.
-6. Supabase sends its normal confirmation email.
-7. After confirmation, the staff member signs in with the role selected by the administrator.
+6. The account is created with the role selected by the administrator and the staff member is signed in straight away.
 
-Only administrators can create staff invitations. The invitation is email-bound, expires, and cannot be reused after acceptance.
+Only administrators can create staff invitations. The invitation is email-bound, expires, and cannot be reused after acceptance. Because no confirmation email is sent, the invitation code itself is the proof of identity: share it only with the invitee, and use short expiries for administrator invitations.
 
 ## Participant registration and onboarding
 
@@ -62,7 +62,7 @@ Only administrators can create staff invitations. The invitation is email-bound,
 2. Admin opens the cohort and generates a participant signup code.
 3. Participant creates an account with that code.
 4. Supabase assigns the participant to the matching cohort.
-5. After email confirmation and first sign-in, the participant must complete their business profile and baseline.
+5. The participant is signed in immediately and must complete their business profile and baseline.
 6. Learning and monthly monitoring unlock after onboarding is complete.
 7. Admin assigns a mentor from the cohort workspace.
 
@@ -95,9 +95,21 @@ Participants can publish one record per reporting month containing:
 
 Publishing the same month again updates that month's record.
 
-## Email confirmation redirect
+## Email confirmation (switched off)
 
-The website sends the current deployed website address to Supabase for signup and magic-link redirects. Supabase must also allow that address:
+The portal does not use email confirmation. Supabase's built-in email sender is for testing only. It is heavily rate-limited, and its messages were not reaching Taylor's mailboxes. Access is already controlled by admin-issued cohort codes and staff invitations, which are consumed by the `m_auth_signup_code` and `m_auth_staff_invite` triggers when the account is created.
+
+Required Supabase setting: **Authentication → Sign In / Providers → Email → Confirm email = off**.
+
+Consequences to be aware of:
+
+- Email ownership is not proven. Signup forms ask for the email twice to reduce typos.
+- Password recovery and magic links still need email, so the sign-in page asks people to contact an administrator instead. Configure custom SMTP (Authentication → Emails → SMTP settings) before re-enabling any email-based flow.
+- Accounts created while confirmation was on stay unconfirmed until marked confirmed in Supabase.
+
+## Auth redirect URLs
+
+The website sends the current deployed website address to Supabase for auth redirects. Supabase must also allow that address:
 
 1. Open **Supabase → Authentication → URL Configuration**.
 2. Set the production Vercel URL as the **Site URL**.
@@ -118,7 +130,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 | --- | --- |
 | Admin | Dashboard analytics, programmes, cohorts, staff invitations, participant profiles, mentor assignment, course authoring, cohort course access, attendance, grading and reports |
 | Mentor | Assigned participant profiles, manual grading, attendance and reports |
-| Stakeholder | Read-only programme analytics and authorised reports |
+| Stakeholder | Aggregated statistics for authorised cohorts only. No access to individual participant records; financial averages are hidden below 3 participants |
 | Participant | Own profile, assigned learning path, private notes, assessments and monthly business monitoring |
 
 ## Run and deploy
@@ -127,7 +139,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 - `npm run check` — syntax and production validation
 - `npm run build` — creates the static `dist` folder for Vercel
 
-Redeploy to Vercel after running migration 004. No package installation is required.
+Redeploy to Vercel after running migration 005. No package installation is required.
 
 ## Current limitations
 
