@@ -316,9 +316,11 @@
   }
   function learningStats(outline) {
     const today = localDay(Date.now()); const done = outline.filter(v => v.done); const doneToday = done.filter(v => localDay(v.done_at) === today);
-    const sum = list => list.reduce((total, v) => total + Number(v.points || 0), 0);
+    const sum = list => list.filter(itemPassed).reduce((total, v) => total + Number(v.points || 0), 0);
     return { total: outline.length, done: done.length, percent: outline.length ? Math.round(done.length / outline.length * 100) : 0, doneToday: doneToday.length, pointsToday: sum(doneToday), points: sum(done) };
   }
+  // Submitted mentor-graded work counts as done for unlocking (migration 008); a pass is still needed for points.
+  function itemPassed(item) { return !isAssessment(item) ? item.done : item.best_score != null && Number(item.best_score) >= Number(item.pass_mark); }
   function nextItem(outline) { return outline.find(v => !v.done && !v.locked && !v.awaiting_review) || outline.find(v => !v.done && !v.locked) || null; }
   function blockerFor(outline, item) { return outline.slice(0, outline.indexOf(item)).find(v => v.required && !v.done) || null; }
   function groupModules(outline) {
@@ -376,8 +378,9 @@
 
   function outlineItem(item, current) {
     const isCurrent = current && itemKey(item) === itemKey(current);
-    const status = item.done ? `<span class="item-status done" title="Completed">${icon('check')}</span>` : item.locked ? `<span class="item-status locked" title="Locked">${icon('lock')}</span>` : item.awaiting_review ? '<span class="item-status pending" title="Awaiting mentor review"></span>' : '<span class="item-status open"></span>';
-    const state_ = item.done ? 'Completed' : item.locked ? 'Locked' : item.awaiting_review ? 'Awaiting review' : 'Not started';
+    const notPassed = isAssessment(item) && item.done && !itemPassed(item);
+    const status = item.awaiting_review ? '<span class="item-status pending" title="Submitted, awaiting mentor review"></span>' : notPassed ? '<span class="item-status attention" title="Submitted, not passed yet">!</span>' : item.done ? `<span class="item-status done" title="Completed">${icon('check')}</span>` : item.locked ? `<span class="item-status locked" title="Locked">${icon('lock')}</span>` : '<span class="item-status open"></span>';
+    const state_ = item.awaiting_review ? 'Submitted, awaiting review' : notPassed ? 'Submitted, not passed yet' : item.done ? 'Completed' : item.locked ? 'Locked' : 'Not started';
     return `<li><button class="outline-item ${isCurrent ? 'current' : ''} ${item.locked ? 'locked' : ''}" data-open-item="${itemKey(item)}" ${isCurrent ? 'aria-current="page"' : ''} aria-label="${esc(`${item.title}, ${itemMeta(item)}, ${state_}`)}">${status}<span><b>${esc(item.title)}</b><small>${esc(itemMeta(item))}${item.required ? '' : ' • Optional'}</small></span></button></li>`;
   }
 
@@ -428,7 +431,7 @@
     const assessment = assessmentRows[0]; if (!assessment) throw new Error('This assessment is unavailable.');
     const used = Number(item.attempts_used || 0); const left = assessment.max_attempts == null ? null : Math.max(0, assessment.max_attempts - used);
     const ready = Number(item.question_count) > 0; const canAttempt = ready && !item.awaiting_review && (left == null || left > 0);
-    const best = item.best_score == null ? null : Number(item.best_score); const passMark = Number(assessment.pass_mark);
+    const best = item.best_score == null ? null : Number(item.best_score); const passMark = Number(assessment.pass_mark); const passed = best != null && best >= passMark; const carryOn = outline[outline.indexOf(item) + 1] ? '<p>You can carry on with the next item while your mentor reviews it.</p>' : '';
     const overdue = assessment.due_at && new Date(assessment.due_at) < new Date() && !item.done;
     const minutesLeft = item.open_attempt_deadline ? Math.max(0, Math.ceil((new Date(item.open_attempt_deadline) - Date.now()) / 60000)) : null;
     const startLabel = used ? 'Try again' : assessment.grading_mode === 'mentor' ? 'Start assignment' : 'Start';
@@ -438,9 +441,9 @@
     else if (canAttempt) actions = `<button class="primary" data-start-assessment="${assessment.id}">${startLabel}</button>`;
     let tone = ''; let status;
     if (!ready) status = '<strong>Not ready yet</strong><p>Your programme team is still adding questions.</p>';
-    else if (item.awaiting_review) { tone = 'pending'; status = '<strong>Submitted for review</strong><p>Your mentor has been notified. Your grade will appear here once it is marked.</p>'; }
-    else if (item.done) { tone = 'passed'; status = `<strong>You passed!</strong><p>To pass you need at least ${passMark}%.</p><div class="status-score"><b>${best ?? passMark}%</b>${submissions.length ? '<a class="secondary btn-sm" href="#attempt-history">View feedback</a>' : ''}</div>${item.done_at ? `<small>Passed ${esc(dateTimeLabel(item.done_at))}</small>` : ''}`; }
-    else if (best != null) { tone = 'failed'; status = `<strong>Not passed yet</strong><p>To pass you need at least ${passMark}%. Your best grade so far is ${best}%.</p>${left === 0 ? '<p><b>No attempts left.</b> Contact your mentor for help.</p>' : ''}`; }
+    else if (item.awaiting_review) { tone = 'pending'; status = `<strong>Submitted for review</strong><p>Your mentor has been notified. Your grade will appear here once it is marked.</p>${carryOn}`; }
+    else if (passed) { tone = 'passed'; status = `<strong>You passed!</strong><p>To pass you need at least ${passMark}%.</p><div class="status-score"><b>${best ?? passMark}%</b>${submissions.length ? '<a class="secondary btn-sm" href="#attempt-history">View feedback</a>' : ''}</div>${item.done_at ? `<small>Passed ${esc(dateTimeLabel(item.done_at))}</small>` : ''}`; }
+    else if (best != null) { tone = 'failed'; status = `<strong>Not passed yet</strong><p>To pass you need at least ${passMark}%. Your best grade so far is ${best}%.</p>${item.done ? '<p>You can still continue the course. Your mentor’s feedback is below.</p>' : ''}${left === 0 ? '<p><b>No attempts left.</b> Contact your mentor for help.</p>' : ''}`; }
     else status = `<strong>Not started</strong><p>To pass you need at least ${passMark}%. Only your best grade counts.</p>`;
     const expect = [
       [icon('calendar'), assessment.due_at ? `Due ${esc(dateTimeLabel(assessment.due_at))}${overdue ? ' <span class="pill red">Past due</span>' : ''}` : 'No due date'],

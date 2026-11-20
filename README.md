@@ -44,8 +44,9 @@ Run these files in the intended Supabase project's **SQL Editor**, in order:
 5. `supabase/migrations/005_dashboard_privacy.sql`
 6. `supabase/migrations/006_learning_player.sql`
 7. `supabase/migrations/007_function_grants.sql`
+8. `supabase/migrations/008_submitted_assignments_unlock.sql`
 
-If migrations 001–006 have already succeeded, run only migration 007. All migrations are idempotent and insert no demonstration programme records.
+If migrations 001–007 have already succeeded, run only migration 008. All migrations are idempotent and insert no demonstration programme records.
 
 Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
@@ -91,7 +92,8 @@ Only administrators can create staff invitations. The invitation is email-bound,
 7. Participants complete the course in sequence:
    - later modules remain locked until the previous module is complete;
    - inside a module, each item stays locked until every earlier required item is finished (content completed, assessments passed);
-   - a mentor-graded assignment unlocks the next item only once it is graded as a pass.
+   - mentor-graded work unlocks the next item as soon as it is submitted, whether or not it has been graded; automatic quizzes must be passed;
+   - points and the “passed” status still require a pass, and a timed attempt that runs out without being submitted counts as a used attempt.
 
 Multiple-choice and checkbox questions are graded automatically. Short answers, long answers and assignment links enter the assigned mentor's grading queue.
 
@@ -153,7 +155,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 - `npm run check` — syntax and production validation
 - `npm run build` — creates the static `dist` folder for Vercel
 
-Redeploy to Vercel after running migration 007. No package installation is required.
+Redeploy to Vercel after running migration 008. No package installation is required.
 
 ## Current limitations
 
