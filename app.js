@@ -9,7 +9,7 @@
     cohortId: null, courseId: null, moduleId: null, assessmentId: null,
     submissionId: null, sessionId: null, participantId: null, participantProfileId: null,
     generatedCode: null, generatedStaffInvite: null, peopleTab: 'cohorts',
-    filters: { programme: '', cohort: '', state: '', sort: 'count_desc' },
+    filters: { month: '', programme: '', cohort: '', state: '', sort: 'count_desc' }, dashTab: 'impact', charts: {},
     peopleFilters: { search: '', programme: '', state: '', sort: 'name' },
     courseFilters: { search: '', sort: 'newest' },
     itemId: null, quiz: false, attempt: null, quizTimer: null, rail: null,
@@ -90,12 +90,12 @@
     state.moduleId = route.get('module') || null; state.assessmentId = route.get('assessment') || null;
     state.submissionId = route.get('submission') || null; state.sessionId = route.get('session') || null;
     state.participantProfileId = route.get('participant') || null;
-    state.itemId = route.get('item') || null; state.quiz = route.get('quiz') === '1';
+    state.itemId = route.get('item') || null; state.quiz = route.get('quiz') === '1'; state.dashTab = route.get('tab') || 'impact';
   }
   function syncRoute() {
     if (!state.member) return;
     const params = new URLSearchParams(); params.set('page', state.page);
-    [['cohort', state.cohortId], ['course', state.courseId], ['module', state.moduleId], ['assessment', state.assessmentId], ['submission', state.submissionId], ['session', state.sessionId], ['participant', state.participantProfileId], ['item', state.itemId], ['quiz', state.quiz ? '1' : null]].forEach(([key, value]) => { if (value) params.set(key, value); });
+    [['cohort', state.cohortId], ['course', state.courseId], ['module', state.moduleId], ['assessment', state.assessmentId], ['submission', state.submissionId], ['session', state.sessionId], ['participant', state.participantProfileId], ['item', state.itemId], ['quiz', state.quiz ? '1' : null], ['tab', state.page === 'overview' && state.dashTab !== 'impact' ? state.dashTab : null]].forEach(([key, value]) => { if (value) params.set(key, value); });
     const url = new URL(location.href); url.searchParams.delete('staffInvite'); url.hash = params.toString(); history.replaceState(null, '', url);
   }
   function resetDetails() { state.cohortId = null; state.courseId = null; state.moduleId = null; state.assessmentId = null; state.submissionId = null; state.sessionId = null; state.participantProfileId = null; state.generatedCode = null; state.generatedStaffInvite = null; state.itemId = null; state.quiz = false; state.attempt = null; state.rail = null; }
@@ -128,6 +128,13 @@
     document.body.classList.toggle('nav-open', open); $('sidebar').inert = !open;
     $('menu-toggle')?.setAttribute('aria-expanded', String(open)); $('menu-toggle')?.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
   }
+  // Hover/focus tooltips for chart marks ([data-tip]); text is inserted with textContent.
+  function initTips() {
+    document.addEventListener('pointerover', event => { const target = event.target.closest?.('[data-tip]'); if (target) showTip([[target.dataset.tip]], event.clientX, event.clientY); });
+    document.addEventListener('pointerout', event => { if (event.target.closest?.('[data-tip]') && !event.relatedTarget?.closest?.('[data-tip]')) hideTip(); });
+    document.addEventListener('focusin', event => { const target = event.target.closest?.('[data-tip]'); if (target) { const box = target.getBoundingClientRect(); showTip([[target.dataset.tip]], box.left + box.width / 2, box.top); } });
+    document.addEventListener('focusout', event => { if (event.target.closest?.('[data-tip]')) hideTip(); });
+  }
   function initNavDrawer() {
     let openTimer = null; let closeTimer = null;
     $('nav-edge').addEventListener('mouseenter', () => { clearTimeout(closeTimer); openTimer = setTimeout(() => setNav(true), 90); });
@@ -139,32 +146,160 @@
     document.addEventListener('click', event => { if (document.body.classList.contains('nav-open') && !event.target.closest('#sidebar, #menu-toggle, #nav-edge')) setNav(false); });
   }
 
-  function barChart(items, sort = 'count_desc') {
-    const values = items.map(v => [v.label, Number(v.count)]); values.sort(sort === 'name' ? (a, b) => a[0].localeCompare(b[0]) : (a, b) => b[1] - a[1]);
-    const max = Math.max(1, ...values.map(v => v[1]));
-    return values.slice(0, 10).map(([label, value]) => `<div class="bar-row"><div class="bar-meta"><span>${esc(label)}</span><b>${value}</b></div><div class="progress"><i style="width:${Math.round(value / max * 100)}%"></i></div></div>`).join('');
+  // ---------- Dashboard (v2) ----------
+  // One reporting month, four views. Figures come from m_dashboard_v2 (totals only) and, for staff,
+  // m_dashboard_attention. Monthly business updates for a month are due on the 10th of the next month.
+  const DASH_TABS = [['impact', 'Impact'], ['learning', 'Learning & attendance'], ['reach', 'Who we reach'], ['attention', 'Needs attention']];
+  const BANDS = [['declined', 'Declined more than 10%', '#e34948', 'ink'], ['flat', 'About the same (within 10%)', '#b8b6ae', 'ink'], ['grew', 'Grew 10–50%', '#5598e7', 'ink'], ['grew_big', 'Grew more than 50%', '#184f95', 'white']];
+  const SERIES_COLORS = { sales: '#36742a', profit: '#2a78d6' };
+  function monthValue(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`; }
+  function monthLabel(value, month = 'long') { const date = new Date(`${String(value).slice(0, 10)}T00:00:00`); return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-MY', { month, year: 'numeric' }); }
+  function shortMonth(value) { const date = new Date(`${String(value).slice(0, 10)}T00:00:00`); return `${date.toLocaleDateString('en-MY', { month: 'short' })} ’${String(date.getFullYear()).slice(2)}`; }
+  function recentMonths(count = 12) { const now = new Date(); return Array.from({ length: count }, (_, i) => monthValue(new Date(now.getFullYear(), now.getMonth() - 1 - i, 1))); }
+  function share(part, whole) { return whole ? Math.round(Number(part) / Number(whole) * 100) : null; }
+  function signed(value, suffix = '%') { return value == null ? '—' : `${Number(value) > 0 ? '+' : ''}${Number(value)}${suffix}`; }
+  function axisMoney(value, compact) { const n = Math.abs(value); const text = !compact ? n.toLocaleString('en-MY') : n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : `${Math.round(n / 1e3)}K`; return `${value < 0 ? '−' : ''}RM ${text}`; }
+  function niceStep(range, ticks = 4) { const raw = range / ticks; const power = 10 ** Math.floor(Math.log10(raw || 1)); return [1, 2, 2.5, 5, 10].map(m => m * power).find(step => step >= raw) || power * 10; }
+  function tableView(caption, headers, rows) { return `<details class="table-view"><summary>View as table</summary><div class="table-wrap"><table><caption class="sr-only">${esc(caption)}</caption><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`; }
+
+  // Ranked or ordered bars, one colour. Every category is shown (no silent top-10 cut).
+  function barList(items, sort = 'count_desc') {
+    const rows = items.map(v => [String(v.label), Number(v.count)]);
+    if (sort === 'name') rows.sort((a, b) => a[0].localeCompare(b[0])); else if (sort === 'count_desc') rows.sort((a, b) => b[1] - a[1]);
+    const max = Math.max(1, ...rows.map(r => r[1])); const total = rows.reduce((sum, r) => sum + r[1], 0);
+    return `<div class="bar-list">${rows.map(([label, value]) => `<div class="bar-row" tabindex="0" data-tip="${esc(`${label}: ${value} (${share(value, total)}%)`)}"><div class="bar-meta"><span>${esc(label)}</span><b>${value}</b></div><div class="bar-track"><i style="width:${Math.max(1, Math.round(value / max * 100))}%"></i></div></div>`).join('')}</div>`;
   }
+  function progressList(items) {
+    return `<div class="bar-list">${items.map(item => { const percent = share(item.value, item.total) ?? 0; return `<div class="bar-row" tabindex="0" data-tip="${esc(`${item.label}: ${item.value} of ${item.total} (${percent}%)`)}"><div class="bar-meta"><span>${esc(item.label)}</span><b>${percent}%</b></div><div class="bar-track"><i style="width:${Math.max(1, percent)}%"></i></div><small>${esc(item.note)}</small></div>`; }).join('')}</div>`;
+  }
+
+  // Growth bands: one whole split into parts (tall segmented bar, diverging colours validated for contrast).
+  function bandBar(bands) {
+    const total = BANDS.reduce((sum, [key]) => sum + Number(bands[key] || 0), 0);
+    const blocks = BANDS.filter(([key]) => Number(bands[key])).map(([key, label, color, ink]) => { const n = Number(bands[key]); const part = Math.round(n / total * 100); return `<span class="band-block ink-${ink}" style="flex:${n};background:${color}" tabindex="0" data-tip="${esc(`${label}: ${n} participant${n === 1 ? '' : 's'} (${part}%)`)}">${part >= 9 ? `${part}%` : ''}</span>`; }).join('');
+    const legend = BANDS.map(([, label, color]) => `<span><i style="background:${color}"></i>${esc(label)}</span>`).join('');
+    return `<div class="band-bar" role="img" aria-label="${esc(BANDS.map(([key, label]) => `${label}: ${Number(bands[key] || 0)}`).join('; '))}">${blocks}</div><div class="chart-legend">${legend}</div>${tableView('Sales growth bands', ['Band', 'Participants', 'Share'], BANDS.map(([key, label]) => [label, Number(bands[key] || 0), `${share(bands[key] || 0, total) ?? 0}%`]))}`;
+  }
+
+  // Line chart: two series on one RM axis, crosshair tooltip, keyboard arrows, table view.
+  function lineChart(id, points, series) {
+    const W = 640; const H = 240; const L = 72; const R = 16; const T = 14; const B = 30;
+    const values = series.flatMap(s => points.map(p => p[s.key])).filter(v => v != null).map(Number);
+    if (!values.length) return '';
+    const step = niceStep(Math.max(...values, 0) - Math.min(...values, 0) || Math.abs(values[0]) || 1000);
+    const yMin = Math.min(0, Math.floor(Math.min(...values) / step) * step); const yMax = Math.max(step, Math.ceil(Math.max(...values) / step) * step);
+    const x = i => L + (points.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (points.length - 1)); const y = v => T + (yMax - v) / (yMax - yMin) * (H - T - B);
+    const compact = Math.max(Math.abs(yMin), Math.abs(yMax)) >= 10000; const ticks = []; for (let v = yMin; v <= yMax + step / 2; v += step) ticks.push(v);
+    const grid = ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="${v === 0 ? 'axis-line' : 'grid-line'}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" class="axis-text">${axisMoney(v, compact)}</text>`).join('');
+    const xLabels = points.map((p, i) => (points.length <= 6 || i % 2 === (points.length - 1) % 2) ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" class="axis-text">${esc(shortMonth(p.month))}</text>` : '').join('');
+    const paths = series.map(s => { let d = ''; let pen = false; points.forEach((p, i) => { if (p[s.key] == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(Number(p[s.key])).toFixed(1)}`; pen = true; }); const last = points.map((p, i) => [p, i]).filter(([p]) => p[s.key] != null).pop(); return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${last ? `<circle cx="${x(last[1])}" cy="${y(Number(last[0][s.key]))}" r="4" fill="${s.color}" stroke="#fff" stroke-width="2"/>` : ''}`; }).join('');
+    state.charts[id] = { points, series, xs: points.map((_, i) => x(i)), y, top: T, bottom: H - B, width: W };
+    const legend = series.map(s => `<span><b class="line-key" style="background:${s.color}"></b>${esc(s.label)}</span>`).join('');
+    const summary = series.map(s => { const last = points.filter(p => p[s.key] != null).pop(); return last ? `${s.label} ${money(last[s.key])} in ${monthLabel(last.month)}` : ''; }).filter(Boolean).join('; ');
+    return `<div class="chart-legend">${legend}</div><div class="line-chart" data-line-chart="${id}" tabindex="0" role="img" aria-label="${esc(`Line chart. ${summary}. Use left and right arrow keys to read each month.`)}"><svg viewBox="0 0 ${W} ${H}">${grid}${xLabels}${paths}<g class="crosshair" hidden><line y1="${T}" y2="${H - B}"/>${series.map(s => `<circle r="4" fill="${s.color}" stroke="#fff" stroke-width="2" data-series="${s.key}"/>`).join('')}</g><rect class="hit-area" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg></div>${tableView('Monthly medians', ['Month', 'Participants reporting', ...series.map(s => s.label)], points.map(p => [monthLabel(p.month), p.reporters, ...series.map(s => p[s.key] == null ? '—' : money(p[s.key]))]))}`;
+  }
+
+  function chartTip() { let tip = $('chart-tip'); if (!tip) { tip = document.createElement('div'); tip.id = 'chart-tip'; tip.setAttribute('role', 'status'); tip.hidden = true; document.body.appendChild(tip); } return tip; }
+  function showTip(lines, clientX, clientY) {
+    const tip = chartTip(); tip.replaceChildren(...lines.map(([value, label, color]) => { const row = document.createElement('div'); if (color) { const key = document.createElement('i'); key.style.background = color; row.appendChild(key); } const strong = document.createElement('b'); strong.textContent = value; row.appendChild(strong); if (label) { const small = document.createElement('span'); small.textContent = label; row.appendChild(small); } return row; }));
+    tip.hidden = false; const box = tip.getBoundingClientRect(); tip.style.left = `${Math.min(window.innerWidth - box.width - 8, clientX + 14)}px`; tip.style.top = `${Math.max(8, clientY - box.height - 12)}px`;
+  }
+  function hideTip() { const tip = $('chart-tip'); if (tip) tip.hidden = true; }
+  function initCharts() {
+    document.querySelectorAll('[data-line-chart]').forEach(chart => {
+      const data = state.charts[chart.dataset.lineChart]; if (!data) return; const svg = chart.querySelector('svg'); const cross = chart.querySelector('.crosshair'); let index = data.points.length - 1;
+      const show = (i, clientX, clientY) => {
+        index = Math.max(0, Math.min(data.points.length - 1, i)); const point = data.points[index]; cross.hidden = false;
+        cross.querySelector('line').setAttribute('x1', data.xs[index]); cross.querySelector('line').setAttribute('x2', data.xs[index]);
+        cross.querySelectorAll('circle').forEach(dot => { const v = point[dot.dataset.series]; dot.style.display = v == null ? 'none' : ''; if (v != null) { dot.setAttribute('cx', data.xs[index]); dot.setAttribute('cy', data.y(Number(v))); } });
+        const rect = svg.getBoundingClientRect(); const px = rect.left + data.xs[index] / data.width * rect.width;
+        showTip([[monthLabel(point.month), `${point.reporters} reporting`], ...data.series.map(s => [point[s.key] == null ? 'Not shown' : money(point[s.key]), s.label, s.color])], clientX ?? px, clientY ?? rect.top + 20);
+      };
+      chart.addEventListener('pointermove', event => { const rect = svg.getBoundingClientRect(); const vx = (event.clientX - rect.left) / rect.width * data.width; let best = 0; data.xs.forEach((px, i) => { if (Math.abs(px - vx) < Math.abs(data.xs[best] - vx)) best = i; }); show(best, event.clientX, event.clientY); });
+      chart.addEventListener('pointerleave', () => { cross.hidden = true; hideTip(); });
+      chart.addEventListener('focus', () => show(index)); chart.addEventListener('blur', () => { cross.hidden = true; hideTip(); });
+      chart.addEventListener('keydown', event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); show(index + (event.key === 'ArrowLeft' ? -1 : 1)); } });
+    });
+  }
+
+  function meter(percent) { const tone = percent == null ? 'none' : percent >= 80 ? 'good' : percent >= 50 ? 'warning' : 'critical'; const label = { good: 'On track', warning: 'Follow up', critical: 'Low', none: 'No updates due' }[tone]; return `<div class="meter meter-${tone}"><i style="width:${percent ?? 0}%"></i></div><span class="status-label status-${tone}">${tone === 'good' ? icon('check') : tone === 'none' ? '' : '!'} ${label}</span>`; }
+  const num = value => Number(value).toLocaleString('en-MY');
+  function heroStat(label, value, note, aside = '') { return `<div class="hero-stat"><div><span class="label">${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>${aside}</div>`; }
 
   function dashboardFilters(programmes, cohorts, states) {
-    return `<div class="filters dashboard-filters"><label>Programme<select data-dashboard-filter="programme"><option value="">All programmes</option>${programmes.map(v => opt(v.id, v.name, state.filters.programme === v.id)).join('')}</select></label><label>Cohort<select data-dashboard-filter="cohort"><option value="">All cohorts</option>${cohorts.filter(v => !state.filters.programme || v.programme_id === state.filters.programme).map(v => opt(v.id, v.name, state.filters.cohort === v.id)).join('')}</select></label><label>State<select data-dashboard-filter="state"><option value="">All states</option>${states.map(v => opt(v, v, state.filters.state === v)).join('')}</select></label><label>Chart sorting<select data-dashboard-filter="sort"><option value="count_desc" ${state.filters.sort === 'count_desc' ? 'selected' : ''}>Highest count first</option><option value="name" ${state.filters.sort === 'name' ? 'selected' : ''}>Alphabetical</option></select></label><button class="secondary btn-sm" id="reset-dashboard-filters">Reset filters</button></div>`;
+    const months = recentMonths(); const selected = state.filters.month || months[0];
+    return `<div class="filters dashboard-filters"><label>Reporting month<select data-dashboard-filter="month">${months.map(m => opt(m, monthLabel(m), m === selected)).join('')}</select></label><label>Programme<select data-dashboard-filter="programme"><option value="">All programmes</option>${programmes.map(v => opt(v.id, v.name, state.filters.programme === v.id)).join('')}</select></label><label>Cohort<select data-dashboard-filter="cohort"><option value="">All cohorts</option>${cohorts.filter(v => !state.filters.programme || v.programme_id === state.filters.programme).map(v => opt(v.id, v.name, state.filters.cohort === v.id)).join('')}</select></label><label>State<select data-dashboard-filter="state"><option value="">All states</option>${states.map(v => opt(v, v, state.filters.state === v)).join('')}</select></label><button class="secondary btn-sm" id="reset-dashboard-filters">Reset filters</button></div>`;
   }
 
-  // Participant figures are aggregated in the database (m_dashboard_overview), so stakeholders
-  // never receive individual participant rows and every role sees the same calculations.
+  function impactSection(d, staff) {
+    const i = d.impact; const month = monthLabel(d.period.month); const reportPct = share(i.reported, i.expected);
+    const growingPct = i.sales_growing == null ? null : share(i.sales_growing, i.sales_n);
+    const hidden = `Hidden: fewer than ${d.min_group} participants`;
+    const profitPct = i.profit_growing == null ? null : share(i.profit_growing, i.profit_n);
+    const aside = i.profit_n ? `<div class="hero-aside"><span>Higher net profit than when they joined</span><b>${profitPct == null ? '—' : `${profitPct}%`}</b><small>${esc(profitPct == null ? hidden : `${i.profit_growing} of ${i.profit_n} participants`)}</small></div>` : '';
+    const hero = heroStat('Participants with higher sales than when they joined', growingPct == null ? '—' : `${growingPct}%`, !i.sales_n ? 'Appears once participants submit monthly business updates' : i.sales_growing == null ? hidden : `${i.sales_growing} of ${i.sales_n} participants, latest update vs baseline`, aside);
+    const jobs = i.jobs_latest == null || !i.jobs_n ? null : Number(i.jobs_latest) - Number(i.jobs_baseline);
+    const customers = i.customers_latest == null || !i.customers_n ? null : Number(i.customers_latest) - Number(i.customers_first);
+    const tiles = [
+      `<div class="stat"><span class="label">Monthly updates received</span><strong>${i.expected ? `${i.reported} of ${i.expected}` : '—'}</strong>${meter(reportPct)}<small>${esc(`${month} updates, due ${dateLabel(d.period.due)}`)}</small></div>`,
+      stat('Typical sales change', i.sales_median_change == null ? '—' : signed(i.sales_median_change), !i.sales_n ? 'No updates yet' : i.sales_median_change == null ? hidden : `Median vs baseline · ${plural(i.sales_n, 'participant')}`, i.sales_median_change == null ? '' : Number(i.sales_median_change) >= 0 ? 'positive-stat' : 'negative-stat'),
+      stat('Average monthly net profit', i.latest_profit_avg == null ? '—' : money(i.latest_profit_avg), !i.profit_reporting ? 'No updates yet' : i.latest_profit_avg == null ? hidden : `Latest update · ${plural(i.profit_reporting, 'participant')}`),
+      stat('Net profit change', i.profit_change_pct == null ? '—' : signed(i.profit_change_pct), i.profit_change_pct != null ? `Same ${plural(i.profit_n, 'participant')}: ${money(i.paired_baseline)} → ${money(i.paired_latest)}` : !i.profit_n ? 'Needs a baseline and an update' : i.paired_baseline == null ? hidden : 'Baseline average is RM 0', i.profit_change_pct == null ? '' : Number(i.profit_change_pct) >= 0 ? 'positive-stat' : 'negative-stat'),
+      stat('Jobs created', jobs == null ? '—' : `${jobs > 0 ? '+' : ''}${num(jobs)}`, jobs == null ? (i.jobs_n ? hidden : 'Employees at baseline vs latest update') : `${num(i.jobs_baseline)} → ${num(i.jobs_latest)} employees · ${i.jobs_n} business${Number(i.jobs_n) === 1 ? '' : 'es'}`),
+      stat('Customer growth', customers == null ? '—' : `${customers > 0 ? '+' : ''}${num(customers)}`, customers == null ? (i.customers_n ? hidden : 'First vs latest update') : `${num(i.customers_first)} → ${num(i.customers_latest)} customers a month`)
+    ].join('');
+    const hasSeries = (i.series || []).some(p => p.median_sales != null || p.median_profit != null);
+    const growthChart = hasSeries ? lineChart('growth', i.series, [{ key: 'median_sales', label: 'Median monthly sales', color: SERIES_COLORS.sales }, { key: 'median_profit', label: 'Median monthly net profit', color: SERIES_COLORS.profit }]) : empty('No monthly updates in this period', 'Sales and profit trends appear once participants submit monthly business updates.', 'reports');
+    const baselineNote = i.baseline_median_sales != null ? `Baseline medians: sales ${money(i.baseline_median_sales)}, net profit ${money(i.baseline_median_profit ?? 0)}` : 'Medians of participants who reported each month';
+    const bands = i.bands ? bandBar(i.bands) : empty(i.sales_n ? 'Hidden for small groups' : 'No growth data yet', i.sales_n ? `Shown when at least ${d.min_group} participants have a baseline and an update.` : 'Needs a baseline and at least one monthly update.', 'reports');
+    const cohortRows = (d.cohorts || []).map(c => `<tr><td><strong>${esc(c.name)}</strong><small>${esc(c.programme || '')}</small></td><td>${c.participants}</td><td>${c.expected ? `${c.reported} of ${c.expected} (${share(c.reported, c.expected)}%)` : '—'}</td><td>${c.completion_pct == null ? '—' : `${c.completion_pct}%`}</td><td>${c.attendance_pct == null ? '—' : `${c.attendance_pct}%`}</td><td>${c.median_growth == null ? (c.growth_n ? 'Hidden' : '—') : signed(c.median_growth)}</td></tr>`).join('');
+    const stories = (i.stories || []).map(s => `<figure class="story-card"><blockquote>${esc(s.text)}</blockquote><figcaption>${esc([staff ? s.business : null, s.sector, s.state, monthLabel(s.month)].filter(Boolean).join(' · '))}</figcaption></figure>`).join('');
+    return `${hero}<div class="stats stats-6">${tiles}</div><div class="grid-2"><section class="card"><div class="card-head"><div><h2>Sales and net profit over time</h2><p>${esc(baselineNote)}</p></div></div>${growthChart}</section><section class="card"><div class="card-head"><div><h2>Sales growth since joining</h2><p>Latest update compared with each participant's baseline</p></div></div>${bands}</section></div><section class="card section-gap"><div class="card-head"><div><h2>Cohort comparison</h2><p>${esc(month)} updates · module completion and attendance to date</p></div></div>${cohortRows ? `<div class="table-wrap"><table><thead><tr><th>Cohort</th><th>Participants</th><th>Updates received</th><th>Module completion</th><th>Attendance</th><th>Typical sales growth</th></tr></thead><tbody>${cohortRows}</tbody></table></div>` : empty('No cohorts in this view', 'Adjust the filters.', 'people')}</section><section class="card"><div class="card-head"><div><h2>Impact stories</h2><p>Shared by participants who gave consent</p></div></div>${stories ? `<div class="story-grid">${stories}</div>` : empty('No stories shared yet', 'Participants can add a story with consent in their monthly update.', 'reports')}</section>`;
+  }
+
+  function learningSection(d, staff) {
+    const l = d.learning; const participants = d.impact.participants;
+    const tiles = [
+      stat('Module completion', l.modules_assigned ? `${share(l.modules_completed, l.modules_assigned)}%` : '—', l.modules_assigned ? `${l.modules_completed} of ${l.modules_assigned} assigned modules finished` : 'No modules assigned yet', 'accent'),
+      stat('Active learners', `${l.active_learners} of ${participants}`, `Opened or finished learning in ${monthLabel(d.period.month)}`),
+      stat('Assessments passed', l.assessments_passed, 'Up to the end of the month'),
+      stat('Attendance this month', Number(l.month_attendance_marked) ? `${share(l.month_attendance_present, l.month_attendance_marked)}%` : '—', Number(l.month_attendance_marked) ? `${l.month_attendance_present} present of ${l.month_attendance_marked} marked` : 'No classes marked this month'),
+      stat('Attendance to date', Number(l.attendance_marked) ? `${share(l.attendance_present, l.attendance_marked)}%` : '—', `${l.attendance_present} present of ${l.attendance_marked} marked`),
+      staff ? stat('Awaiting mentor grading', l.pending_grading ?? 0, 'Submitted assignments') : ''
+    ].join('');
+    const courses = (l.courses || []).map(c => ({ label: c.title, value: Number(c.finished), total: Number(c.participants), note: `${c.finished} of ${c.participants} participants finished every module` }));
+    return `<div class="stats stats-6">${tiles}</div><section class="card"><div class="card-head"><div><h2>Course completion</h2><p>Participants who finished every module assigned to them</p></div></div>${courses.length ? progressList(courses) : empty('No courses assigned', 'Grant a course to a cohort from Courses & modules.', 'learning')}</section>`;
+  }
+
+  function reachSection(d) {
+    const r = d.reach; const sort = state.filters.sort;
+    const card = (title, note, items, order = sort) => `<section class="card"><div class="card-head"><div><h2>${esc(title)}</h2><p>${esc(note)}</p></div></div>${items.length ? barList(items, order) : empty('No profiles yet', 'Participant profiles will fill this view.', 'people')}</section>`;
+    return `<div class="reach-head"><p><b>${d.impact.participants}</b> active participants in this view. Counts use the values participants gave in their business profile.</p><label class="inline-sort">Sort<select data-dashboard-filter="sort"><option value="count_desc" ${sort === 'count_desc' ? 'selected' : ''}>Highest count first</option><option value="name" ${sort === 'name' ? 'selected' : ''}>Alphabetical</option></select></label></div><div class="grid-equal">${card('State', 'Where participants run their business', r.by_state)}${card('Gender', 'Only supplied values are counted', r.by_gender)}${card('Age group', 'Age at onboarding', r.by_age, 'none')}${card('Business sector', 'As described by the participant', r.by_sector)}${card('Registration status', 'Business registration', r.by_registration)}</div>`;
+  }
+
+  function attentionSection(d, rows, isAdmin) {
+    const month = monthLabel(d.period.month); const overdue = d.period.due_passed;
+    const flags = [['missing_report', overdue ? `${month} update overdue` : `${month} update due ${dateLabel(d.period.due)}`, overdue ? 'critical' : 'warning', 'clock'], ['profit_falling', 'Profit fell two months in a row', 'serious', 'reports'], ['learning_inactive', 'No learning for 14 days', 'warning', 'learning'], ['low_attendance', 'Attendance below 50%', 'serious', 'attendance'], ['profile_incomplete', 'Business profile not finished', 'neutral', 'people']];
+    const counts = flags.map(([key, label, tone, ico]) => { const n = rows.filter(r => r[key]).length; return n ? `<span class="flag flag-${tone}">${icon(ico)}${esc(label)} <b>${n}</b></span>` : ''; }).join('');
+    const table = rows.map(r => `<tr><td><strong>${esc(r.full_name)}</strong><small>${esc(r.business_name || 'Business not set')}</small></td><td>${esc(r.cohort_name || '—')}</td>${isAdmin ? `<td>${esc(r.mentor_name || 'Unassigned')}</td>` : ''}<td><div class="flag-list">${flags.filter(([key]) => r[key]).map(([, label, tone, ico]) => `<span class="flag flag-${tone}">${icon(ico)}${esc(label)}</span>`).join('')}</div></td><td>${r.last_report_month ? esc(monthLabel(r.last_report_month)) : 'None yet'}</td><td><button class="secondary btn-sm" data-open-participant="${r.participant_id}" data-from-dashboard>View profile</button></td></tr>`).join('');
+    return `<p class="attention-intro">${isAdmin ? 'Participants' : 'Your mentees'} who may need a check-in for ${esc(month)}. Monthly updates are due on the 10th of the following month.</p>${counts ? `<div class="flag-list summary">${counts}</div>` : ''}<section class="card">${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Participant</th><th>Cohort</th>${isAdmin ? '<th>Mentor</th>' : ''}<th>Why</th><th>Last update</th><th></th></tr></thead><tbody>${table}</tbody></table></div>` : empty('Nobody needs attention', 'Everyone in this view is up to date.', 'people')}</section>`;
+  }
+
   async function overview() {
-    const [summary, courses, modules, cohorts, programmes] = await Promise.all([
-      rpc('m_dashboard_overview', { target_programme: state.filters.programme || null, target_cohort: state.filters.cohort || null, target_state: state.filters.state || null }),
-      rows('m_courses', 'id,title,active'), rows('m_modules', 'id,course_id,published'), rows('m_cohorts', 'id,programme_id,name,state'), rows('m_programmes', 'id,name')
+    const role = state.member.role; const staff = role !== 'stakeholder'; const isAdmin = role === 'admin';
+    const month = state.filters.month || recentMonths()[0];
+    const [d, cohorts, programmes, attention] = await Promise.all([
+      rpc('m_dashboard_v2', { target_programme: state.filters.programme || null, target_cohort: state.filters.cohort || null, target_state: state.filters.state || null, target_month: month }),
+      rows('m_cohorts', 'id,programme_id,name,state', q => q.order('name')), rows('m_programmes', 'id,name', q => q.order('name')),
+      staff ? rpc('m_dashboard_attention', { target_programme: state.filters.programme || null, target_cohort: state.filters.cohort || null, target_month: month }) : Promise.resolve([])
     ]);
-    const s = summary; const plural = n => `${n} participant${n === 1 ? '' : 's'}`;
-    const avgProfit = s.avg_latest_profit;
-    const avgNote = !s.profit_reporting ? 'No monthly reports yet' : avgProfit == null ? `Hidden: fewer than ${s.min_group} participants reporting` : `Latest reported month · ${plural(s.profit_reporting)}`;
-    const change = s.profit_change_pct;
-    const changeNote = change != null ? `Same ${plural(s.profit_paired)}: ${money(s.paired_avg_baseline)} baseline → ${money(s.paired_avg_latest)} latest`
-      : !s.profit_paired ? 'Needs a baseline and a monthly report'
-      : s.financials_suppressed ? `Hidden: fewer than ${s.min_group} participants with both figures`
-      : 'Baseline average is RM 0, so no percentage';
-    return `${head(state.member.role === 'mentor' ? 'Mentor overview' : 'Programme overview', 'Live programme participation, learning progress and business outcomes within your authorised scope.', `${state.member.role.toUpperCase()} WORKSPACE`)}${dashboardFilters(programmes, cohorts, s.states)}<div class="stats stats-8">${stat('Participants', s.participants, `${s.profiles_completed} completed profiles`, 'accent')}${stat('Active cohorts', s.cohorts, 'Within selected scope')}${stat('Active courses', courses.filter(v => v.active).length, `${modules.filter(v => v.published).length} published modules`)}${stat('Learning completion', `${s.completion_pct}%`, `${s.modules_passed} passed module assessments`)}${stat('Attendance rate', `${s.attendance_pct}%`, `${s.attendance_present} present records`)}${stat('Average monthly net profit', avgProfit == null ? '—' : money(avgProfit), avgNote)}${stat('Net profit change', change == null ? '—' : `${change >= 0 ? '+' : ''}${change}%`, changeNote, change == null ? '' : change >= 0 ? 'positive-stat' : 'negative-stat')}${stat('Awaiting mentor grading', s.pending_grading, 'Manual assignments')}</div><div class="grid-equal"><section class="card"><div class="card-head"><div><h2>Participants by state</h2><p>Demographic distribution for the current filter</p></div></div>${s.participants ? barChart(s.by_state, state.filters.sort) : empty('No participant profiles', 'Adjust the filters or wait for enrolment.', 'people')}</section><section class="card"><div class="card-head"><div><h2>Participants by gender</h2><p>Only supplied profile values are counted</p></div></div>${s.participants ? barChart(s.by_gender, state.filters.sort) : empty('No demographic data', 'Participant profiles will populate this view.', 'people')}</section></div><section class="card impact-funnel"><div class="funnel"><div><span>Participants enrolled</span><strong>${s.participants}</strong></div><div><span>Profiles completed</span><strong>${s.profiles_completed}</strong></div><div><span>Modules assigned</span><strong>${s.modules_assigned}</strong></div><div><span>Modules passed</span><strong>${s.modules_passed}</strong></div></div></section>`;
+    const tabs = DASH_TABS.filter(([id]) => staff || id !== 'attention'); if (!tabs.some(([id]) => id === state.dashTab)) state.dashTab = 'impact';
+    const attentionRows = attention || [];
+    const scope = [state.filters.programme ? programmes.find(v => v.id === state.filters.programme)?.name : 'All programmes', state.filters.cohort ? cohorts.find(v => v.id === state.filters.cohort)?.name : 'All cohorts', state.filters.state || 'All states'].filter(Boolean).join(' · ');
+    const sections = { impact: () => impactSection(d, staff), learning: () => learningSection(d, staff), reach: () => reachSection(d), attention: () => attentionSection(d, attentionRows, isAdmin) };
+    const tabBar = `<div class="dash-tabs" role="tablist" aria-label="Dashboard views">${tabs.map(([id, label]) => `<button role="tab" id="dash-tab-${id}" aria-controls="dash-panel-${id}" aria-selected="${state.dashTab === id}" class="${state.dashTab === id ? 'active' : ''}" data-dash-tab="${id}">${esc(label)}${id === 'attention' && attentionRows.length ? ` <span class="tab-count">${attentionRows.length}</span>` : ''}</button>`).join('')}</div>`;
+    const panels = tabs.map(([id]) => `<div class="dash-panel" role="tabpanel" id="dash-panel-${id}" aria-labelledby="dash-tab-${id}" ${state.dashTab === id ? '' : 'hidden'}>${sections[id]()}</div>`).join('');
+    return `${head(role === 'mentor' ? 'Mentor overview' : 'Programme overview', role === 'mentor' ? 'Business growth, learning and follow-ups for your mentees.' : 'Business growth, learning and reach across the programme.', `${role.toUpperCase()} WORKSPACE`)}${dashboardFilters(programmes, cohorts, d.states || [])}<p class="period-line">Showing <b>${esc(monthLabel(d.period.month))}</b> · updates due ${esc(dateLabel(d.period.due))} · ${esc(scope)}</p>${tabBar}${panels}`;
   }
 
   function participantTable(participants, mentors, editable) {
@@ -565,8 +700,8 @@
   function reports() { return `${head('Reports', 'Generate stakeholder-ready programme reports from approved records.', 'REPORTING')}<section class="card">${empty('Reports will populate from live records', 'Demographics, learning completion, attendance, income outcomes and approved stories will be consolidated here.', 'reports')}</section>`; }
 
   async function loadPage() {
-    clearInterval(state.quizTimer); renderShell(); syncRoute(); $('account-menu').hidden = true; $('content').innerHTML = '<div class="loading-card">Loading live data…</div>';
-    try { let html; if (state.page === 'overview') html = await overview(); else if (state.page === 'people') html = await people(); else if (state.page === 'learning') html = await learning(); else if (state.page === 'grading') html = await grading(); else if (state.page === 'attendance') html = await attendance(); else if (state.page === 'business') html = await business(); else if (state.page === 'profile') html = await participantProfile(state.participantId); else if (state.page === 'account') html = account(); else html = reports(); $('content').innerHTML = html; document.body.classList.toggle('focus-mode', Boolean(document.querySelector('.quiz-focus'))); document.body.classList.toggle('player-mode', Boolean(document.querySelector('.player'))); if ($('quiz-timer')) startQuizTimer(); if (state.generatedCode && $('generated-code-modal')) $('generated-code-modal').showModal(); if (state.generatedStaffInvite && $('staff-invite-result')) $('staff-invite-result').showModal(); }
+    clearInterval(state.quizTimer); hideTip(); renderShell(); syncRoute(); $('account-menu').hidden = true; $('content').innerHTML = '<div class="loading-card">Loading live data…</div>';
+    try { let html; if (state.page === 'overview') html = await overview(); else if (state.page === 'people') html = await people(); else if (state.page === 'learning') html = await learning(); else if (state.page === 'grading') html = await grading(); else if (state.page === 'attendance') html = await attendance(); else if (state.page === 'business') html = await business(); else if (state.page === 'profile') html = await participantProfile(state.participantId); else if (state.page === 'account') html = account(); else html = reports(); $('content').innerHTML = html; document.body.classList.toggle('focus-mode', Boolean(document.querySelector('.quiz-focus'))); document.body.classList.toggle('player-mode', Boolean(document.querySelector('.player'))); if ($('quiz-timer')) startQuizTimer(); initCharts(); if (state.generatedCode && $('generated-code-modal')) $('generated-code-modal').showModal(); if (state.generatedStaffInvite && $('staff-invite-result')) $('staff-invite-result').showModal(); }
     catch (error) { console.error(error); document.body.classList.remove('focus-mode', 'player-mode'); $('content').innerHTML = `${head('Database upgrade required', 'One or more product tables or functions are unavailable.', 'ACTION REQUIRED')}<section class="notice amber">${esc(error.message)}</section>${empty('Run the latest database migration', 'Apply the newest file in supabase/migrations, then refresh this page.', 'overview')}`; }
   }
   async function loadMembership() {
@@ -587,7 +722,8 @@
       const peopleTab = event.target.closest('[data-people-tab]'); if (peopleTab) { state.peopleTab = peopleTab.dataset.peopleTab; await loadPage(); return; }
       const cohort = event.target.closest('[data-open-cohort]'); if (cohort) { state.cohortId = cohort.dataset.openCohort; await loadPage(); return; }
       if (event.target.closest('#back-cohorts')) { state.cohortId = null; state.generatedCode = null; await loadPage(); return; }
-      const participant = event.target.closest('[data-open-participant]'); if (participant) { state.participantProfileId = participant.dataset.openParticipant; await loadPage(); return; }
+      const participant = event.target.closest('[data-open-participant]'); if (participant) { if (participant.hasAttribute('data-from-dashboard')) { state.page = 'people'; resetDetails(); } state.participantProfileId = participant.dataset.openParticipant; await loadPage(); return; }
+      const dashTab = event.target.closest('[data-dash-tab]'); if (dashTab) { state.dashTab = dashTab.dataset.dashTab; document.querySelectorAll('[data-dash-tab]').forEach(tab => { const active = tab === dashTab; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); }); document.querySelectorAll('.dash-panel').forEach(panel => { panel.hidden = panel.id !== `dash-panel-${state.dashTab}`; }); hideTip(); syncRoute(); return; }
       if (event.target.closest('#back-participant-profile')) { state.participantProfileId = null; await loadPage(); return; }
       const course = event.target.closest('[data-open-course]'); if (course) { state.courseId = course.dataset.openCourse; state.moduleId = null; openItem(null); await loadPage(); return; }
       const resume = event.target.closest('[data-resume-course]'); if (resume) { state.courseId = resume.dataset.resumeCourse; openItem(null); state.resume = true; await loadPage(); return; }
@@ -627,7 +763,7 @@
 
       const submission = event.target.closest('[data-open-submission]'); if (submission) { state.submissionId = submission.dataset.openSubmission; await loadPage(); return; }
       if (event.target.closest('#back-grading')) { state.submissionId = null; await loadPage(); return; }
-      if (event.target.closest('#reset-dashboard-filters')) { state.filters = { programme: '', cohort: '', state: '', sort: 'count_desc' }; await loadPage(); }
+      if (event.target.closest('#reset-dashboard-filters')) { state.filters = { month: '', programme: '', cohort: '', state: '', sort: 'count_desc' }; await loadPage(); }
     } catch (error) { console.error(error); const form = event.target.closest('form'); if (!setFormError(form, error.message || 'Action failed.')) toast(error.message || 'Action failed.'); }
   });
 
@@ -693,7 +829,7 @@
   });
 
   async function start() {
-    applyRoute(); initNavDrawer(); const cfg = window.PORTAL_CONFIG || {}; if (!cfg.supabaseUrl || !cfg.supabasePublishableKey) throw new Error('Supabase configuration missing.');
+    applyRoute(); initNavDrawer(); initTips(); const cfg = window.PORTAL_CONFIG || {}; if (!cfg.supabaseUrl || !cfg.supabasePublishableKey) throw new Error('Supabase configuration missing.');
     state.client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     const { data, error } = await state.client.auth.getSession(); if (error) return renderLogin(error.message, 'error'); state.session = data.session; if (!state.session) renderLogin(); else await loadMembership();
     // Supabase re-announces SIGNED_IN (and refreshes the token) when the tab regains focus. For the same

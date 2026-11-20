@@ -2,6 +2,17 @@
 
 Version 8.0.0 adds a Coursera-style learning player for participants on top of the version 7 learning and monitoring product. It contains no demonstration users, participants, courses, videos, assessments, attendance, business records or testimonials.
 
+## Dashboard (version 9)
+
+The programme overview is organised around one **reporting month**. Monthly business updates for a month are due on the **10th of the following month**.
+
+- **Impact:** share of participants with higher sales (and net profit) than at baseline, updates received, typical (median) sales change, average net profit, net profit change for the same participants, jobs created, customer growth, a median sales and profit trend, sales-growth bands, a cohort comparison and consented impact stories.
+- **Learning & attendance:** module completion, active learners in the month, assessments passed, attendance, grading backlog (staff only) and course completion.
+- **Who we reach:** state, gender, age group, sector and registration status, with every category shown.
+- **Needs attention (admins and mentors only):** missing or overdue updates, profit falling two months in a row, no learning for 14 days, attendance below 50% and unfinished business profiles.
+
+All figures are calculated in the database (`m_dashboard_v2`, `m_dashboard_attention`). Stakeholders receive totals only, never names, and any financial figure based on fewer than 3 participants is hidden from them. Money uses medians so one large business cannot distort the picture. Every chart has a "View as table" option and hover or keyboard tooltips.
+
 ## Version 8 learning player
 
 - Course player with a collapsible course outline, one item per page and "Go to next item" navigation.
@@ -45,8 +56,9 @@ Run these files in the intended Supabase project's **SQL Editor**, in order:
 6. `supabase/migrations/006_learning_player.sql`
 7. `supabase/migrations/007_function_grants.sql`
 8. `supabase/migrations/008_submitted_assignments_unlock.sql`
+9. `supabase/migrations/009_dashboard_v2.sql`
 
-If migrations 001–007 have already succeeded, run only migration 008. All migrations are idempotent and insert no demonstration programme records.
+If migrations 001–008 have already succeeded, run only migration 009. All migrations are idempotent and insert no demonstration programme records.
 
 Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
@@ -155,7 +167,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 - `npm run check` — syntax and production validation
 - `npm run build` — creates the static `dist` folder for Vercel
 
-Redeploy to Vercel after running migration 008. No package installation is required.
+Redeploy to Vercel after running migration 009. No package installation is required.
 
 ## Current limitations
 
