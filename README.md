@@ -1,6 +1,18 @@
 # eKelas Usahawan — Learning & Impact Portal
 
-Version 7.0.0 turns the dashboard into an operational learning and monitoring product. It contains no demonstration users, participants, courses, videos, assessments, attendance, business records or testimonials.
+Version 8.0.0 adds a Coursera-style learning player for participants on top of the version 7 learning and monitoring product. It contains no demonstration users, participants, courses, videos, assessments, attendance, business records or testimonials.
+
+## Version 8 learning player
+
+- Course player with a collapsible course outline, one item per page and "Go to next item" navigation.
+- Videos, readings, workbooks and assessments in any order inside a module. Each required item unlocks the next one, enforced in the database.
+- YouTube, Vimeo and Google Drive videos play inside the portal. Share Google Drive videos as “Anyone with the link”. Other links open on their host site.
+- Transcript, private notes and downloadable file links beside each item.
+- Assessment cover page with pass mark, best grade, attempts, time limit, due date and attempt history.
+- Focused quiz mode with a database-enforced timer. Answers submit automatically when time runs out, and unanswered questions score zero. Due dates are shown but late work is still accepted.
+- Daily goal (3 items) and points per item to encourage steady progress.
+- The main navigation is a drawer: move the pointer to the left edge of the screen or use the menu button.
+- Admins order module items with arrows, edit learning items, and set duration, points, transcript, files, time limit and due date.
 
 ## Version 7 capabilities
 
@@ -30,8 +42,9 @@ Run these files in the intended Supabase project's **SQL Editor**, in order:
 3. `supabase/migrations/003_cohort_signup_assessments.sql`
 4. `supabase/migrations/004_product_workflows.sql`
 5. `supabase/migrations/005_dashboard_privacy.sql`
+6. `supabase/migrations/006_learning_player.sql`
 
-If migrations 001–004 have already succeeded, run only migration 005. All migrations are idempotent and insert no demonstration programme records.
+If migrations 001–005 have already succeeded, run only migration 006. All migrations are idempotent and insert no demonstration programme records.
 
 Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
@@ -70,14 +83,14 @@ Only administrators can create staff invitations. The invitation is email-bound,
 
 1. Admin creates a course workspace.
 2. Admin adds ordered modules.
-3. Each module contains required or optional videos, readings and workbooks.
-4. Admin creates ordered assessments and chooses one attempt or multiple attempts.
+3. Each module contains required or optional videos, readings and workbooks, plus assessments, in any order. Use the arrows to reorder items.
+4. For each assessment the admin sets the pass mark, attempts (blank = unlimited), optional time limit, optional due date and points.
 5. Admin selects **Manage cohort access** from inside the course.
 6. All participants in the authorised cohort receive the course automatically.
 7. Participants complete the course in sequence:
    - later modules remain locked until the previous module is complete;
-   - assessments remain locked until all required content is complete;
-   - later assessments remain locked until earlier assessments are passed.
+   - inside a module, each item stays locked until every earlier required item is finished (content completed, assessments passed);
+   - a mentor-graded assignment unlocks the next item only once it is graded as a pass.
 
 Multiple-choice and checkbox questions are graded automatically. Short answers, long answers and assignment links enter the assigned mentor's grading queue.
 
@@ -139,7 +152,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 - `npm run check` — syntax and production validation
 - `npm run build` — creates the static `dist` folder for Vercel
 
-Redeploy to Vercel after running migration 005. No package installation is required.
+Redeploy to Vercel after running migration 006. No package installation is required.
 
 ## Current limitations
 
