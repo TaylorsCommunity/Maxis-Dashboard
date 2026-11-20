@@ -43,8 +43,9 @@ Run these files in the intended Supabase project's **SQL Editor**, in order:
 4. `supabase/migrations/004_product_workflows.sql`
 5. `supabase/migrations/005_dashboard_privacy.sql`
 6. `supabase/migrations/006_learning_player.sql`
+7. `supabase/migrations/007_function_grants.sql`
 
-If migrations 001–005 have already succeeded, run only migration 006. All migrations are idempotent and insert no demonstration programme records.
+If migrations 001–006 have already succeeded, run only migration 007. All migrations are idempotent and insert no demonstration programme records.
 
 Every portal-owned table, policy and function uses the `m_` prefix. This keeps portal data separate from the other application using the same Supabase project.
 
@@ -152,7 +153,7 @@ Never place a service-role key in this repository, Vercel or browser code.
 - `npm run check` — syntax and production validation
 - `npm run build` — creates the static `dist` folder for Vercel
 
-Redeploy to Vercel after running migration 006. No package installation is required.
+Redeploy to Vercel after running migration 007. No package installation is required.
 
 ## Current limitations
 
